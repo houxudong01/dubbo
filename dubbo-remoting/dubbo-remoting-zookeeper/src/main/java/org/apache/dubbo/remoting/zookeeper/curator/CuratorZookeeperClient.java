@@ -87,6 +87,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
     @Override
     public void createPersistent(String path) {
         try {
+            // 将持久节点的创建工作交由CuratorFramework进行
             client.create().forPath(path);
         } catch (NodeExistsException e) {
         } catch (Exception e) {
@@ -97,6 +98,7 @@ public class CuratorZookeeperClient extends AbstractZookeeperClient<CuratorZooke
     @Override
     public void createEphemeral(String path) {
         try {
+            // 将临时节点的创建工作交由CuratorFramework进行
             client.create().withMode(CreateMode.EPHEMERAL).forPath(path);
         } catch (NodeExistsException e) {
         } catch (Exception e) {

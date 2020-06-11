@@ -65,11 +65,21 @@ public class NettyServer extends AbstractServer implements Server {
     @Override
     protected void doOpen() throws Throwable {
         NettyHelper.setNettyLoggerFactory();
+
+        // 这里就进入了创建netty服务的过程
+        // 分别创建 boss 和 worker 线程组，
+        // boss 线程组线程数为1，因为只有一个 Chanel 用户接收客户请求
+        // worker 线程组线程数为配置文件中设置的线程数，这写线程主要用于进行请求的处理
         ExecutorService boss = Executors.newCachedThreadPool(new NamedThreadFactory("NettyServerBoss", true));
         ExecutorService worker = Executors.newCachedThreadPool(new NamedThreadFactory("NettyServerWorker", true));
         ChannelFactory channelFactory = new NioServerSocketChannelFactory(boss, worker, getUrl().getPositiveParameter(Constants.IO_THREADS_KEY, Constants.DEFAULT_IO_THREADS));
+
         bootstrap = new ServerBootstrap(channelFactory);
 
+        // 创建NettyHandler，这个handler就是用于处理请求用的handler，但是前面我们也讲到了，
+        // Dubbo使用了一个handler的责任链来进行消息的处理，第二个参数this就是这个链的链头。需要注意的是，
+        // Netty本身提供的责任链与Dubbo这里使用的责任链是不同的，Dubbo只是使用了Netty的链的一个节点来
+        // 处理Dubbo所创建的链，这样Dubbo的链其实是可以在多种服务复用的，比如Mina
         final NettyHandler nettyHandler = new NettyHandler(getUrl(), this);
         channels = nettyHandler.getChannels();
         // https://issues.jboss.org/browse/NETTY-365
@@ -85,13 +95,17 @@ public class NettyServer extends AbstractServer implements Server {
                 if (idleTimeout > 10000) {
                     pipeline.addLast("timer", new IdleStateHandler(timer, idleTimeout / 1000, 0, 0));
                 }*/
+                // 添加用于解码的handler
                 pipeline.addLast("decoder", adapter.getDecoder());
+                // 添加用于编码的handler
                 pipeline.addLast("encoder", adapter.getEncoder());
+                // 将处理请求的handler添加到pipeline中
                 pipeline.addLast("handler", nettyHandler);
                 return pipeline;
             }
         });
         // bind
+        // 进行服务的绑定
         channel = bootstrap.bind(getBindAddress());
     }
 

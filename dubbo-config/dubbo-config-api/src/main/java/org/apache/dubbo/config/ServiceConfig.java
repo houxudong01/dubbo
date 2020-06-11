@@ -276,22 +276,28 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             throw new IllegalStateException("<dubbo:service interface=\"\" /> interface not allow null!");
         }
 
+        // 检测ref是否为泛化服务类型
         if (ref instanceof GenericService) {
+            // 设置interfaceClass为GenericService
             interfaceClass = GenericService.class;
             if (StringUtils.isEmpty(generic)) {
+                // 设置generic = true
                 generic = Boolean.TRUE.toString();
             }
         } else {
             try {
+                // 获得接口类型
                 interfaceClass = Class.forName(interfaceName, true, Thread.currentThread()
                         .getContextClassLoader());
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }
             checkInterfaceAndMethods(interfaceClass, methods);
+            // 对ref合法性进行检测
             checkRef();
             generic = Boolean.FALSE.toString();
         }
+        // 配置本地存根
         if (local != null) {
             if ("true".equals(local)) {
                 local = interfaceName + "Local";
@@ -306,6 +312,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                 throw new IllegalStateException("The local implementation class " + localClass.getName() + " not implement interface " + interfaceName);
             }
         }
+        // 配置本地存根
         if (stub != null) {
             if ("true".equals(stub)) {
                 stub = interfaceName + "Stub";
@@ -325,9 +332,10 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
     }
 
     /**
-     * 服务暴露入口
+     * 服务暴露实际入口
      */
     public synchronized void export() {
+        // 检查和更新一些配置
         checkAndUpdateSubConfigs();
 
         if (!shouldExport()) {
@@ -414,9 +422,11 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
     private void doExportUrls() {
         // 获取到注册中心的 URL 列表
         List<URL> registryURLs = loadRegistries(true);
-        // 对所有的协议都要暴露
+        // 遍历protocols,并在每个协议下暴露
         for (ProtocolConfig protocolConfig : protocols) {
+            // 服务接口全路径名，例如：org.apache.dubbo.demo.DemoService
             String pathKey = URL.buildKey(getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), group, version);
+            // 将服务放到一个Map中：接口全路径名 -> 服务接口
             ProviderModel providerModel = new ProviderModel(pathKey, ref, interfaceClass);
             ApplicationModel.initProviderModel(pathKey, providerModel);
             doExportUrlsFor1Protocol(protocolConfig, registryURLs);
@@ -424,7 +434,9 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
     }
 
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
+        // 获取协议名称
         String name = protocolConfig.getName();
+        // 如果协议名称为空，则默认使用 dubbo 协议
         if (StringUtils.isEmpty(name)) {
             name = Constants.DUBBO;
         }
@@ -437,12 +449,20 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         appendParameters(map, provider, Constants.DEFAULT_KEY);
         appendParameters(map, protocolConfig);
         appendParameters(map, this);
+
+        // 如果method的配置列表不为空
         if (CollectionUtils.isNotEmpty(methods)) {
+            // 遍历method配置列表
             for (MethodConfig method : methods) {
+                // 把方法名加入map
                 appendParameters(map, method, method.getName());
+                // 添加 MethodConfig对象的字段信息到map中,键=方法名.属性名
+                // 比如存储<dubbo:method name="sayHello" retries="1">对应的MethodConfig,
+                // 键=sayHello.retries,map = {"sayHello.retries": 1}
                 String retryKey = method.getName() + ".retry";
                 if (map.containsKey(retryKey)) {
                     String retryValue = map.remove(retryKey);
+                    // 如果retryValue为false,则不重试,设置值为0
                     if ("false".equals(retryValue)) {
                         map.put(method.getName() + ".retries", "0");
                     }
@@ -533,16 +553,19 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         if (!Constants.SCOPE_NONE.equalsIgnoreCase(scope)) {
 
             // export to local if the config is not remote (export to remote only when config is remote)
+            // 暴露到本地
             if (!Constants.SCOPE_REMOTE.equalsIgnoreCase(scope)) {
                 exportLocal(url);
             }
             // export to remote if the config is not local (export to local only when config is local)
+            // 暴露到远程
             if (!Constants.SCOPE_LOCAL.equalsIgnoreCase(scope)) {
                 if (logger.isInfoEnabled()) {
                     logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
                 }
                 if (CollectionUtils.isNotEmpty(registryURLs)) {
                     for (URL registryURL : registryURLs) {
+                        // 添加动态参数,此动态参数是决定Zookeeper创建临时节点还是持久节点
                         url = url.addParameterIfAbsent(Constants.DYNAMIC_KEY, registryURL.getParameter(Constants.DYNAMIC_KEY));
                         URL monitorUrl = loadMonitor(registryURL);
                         if (monitorUrl != null) {
@@ -558,9 +581,11 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                             registryURL = registryURL.addParameter(Constants.PROXY_KEY, proxy);
                         }
 
+                        // 创建Invoker
                         Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(Constants.EXPORT_KEY, url.toFullString()));
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
+                        // 暴露服务
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         exporters.add(exporter);
                     }
@@ -586,14 +611,22 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void exportLocal(URL url) {
+        // 如果协议不是 injvm
         if (!Constants.LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
+            // 生成本地的url,分别把协议改为injvm,设置host和port
             URL local = URLBuilder.from(url)
                     .setProtocol(Constants.LOCAL_PROTOCOL)
                     .setHost(LOCALHOST_VALUE)
                     .setPort(0)
                     .build();
+            // 通过代理工程创建invoker
+            // 再调用export方法进行暴露服务,生成Exporter
+            // 这里的protocol是生成的拓展代理对象
+            // 它是在运行时才根据URL中的protocol参数去决定运行哪个Protocol实例的export方法,这里由于前面
+            // setProtocol(Constants.LOCAL_PROTOCOL),所以调用的是InjvmProtocol的export方法
             Exporter<?> exporter = protocol.export(
                     proxyFactory.getInvoker(ref, (Class) interfaceClass, local));
+            // 把生成的暴露者加入集合
             exporters.add(exporter);
             logger.info("Export dubbo service " + interfaceClass.getName() + " to local registry");
         }

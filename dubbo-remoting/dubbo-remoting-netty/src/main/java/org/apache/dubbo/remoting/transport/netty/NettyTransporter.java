@@ -29,6 +29,9 @@ public class NettyTransporter implements Transporter {
 
     @Override
     public Server bind(URL url, ChannelHandler listener) throws RemotingException {
+        // 在NettyTransporter中进行服务绑定时，其只是创建了一个NettyServer以返回，但实际上在创建该对象的
+        // 过程中，就完成了Netty服务的绑定。需要注意的是，这里的NettyServer并不是Netty所提供的类，而是
+        // Dubbo自己封装的一个服务类，其对Netty的服务进行了封装
         return new NettyServer(url, listener);
     }
 

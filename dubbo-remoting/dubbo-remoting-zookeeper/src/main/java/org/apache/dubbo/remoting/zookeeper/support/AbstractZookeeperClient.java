@@ -56,18 +56,27 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
 
     @Override
     public void create(String path, boolean ephemeral) {
+        // 判断创建的是否为临时节点，如果不是临时节点，则判断是否已经存在该节点，如果存在，则直接返回
         if (!ephemeral) {
             if (checkExists(path)) {
                 return;
             }
         }
+        // 对path进行截取，因为最后一个"/"后面是被编码的URL对象，前面则是serviceKey + category
+        // 这里的category指定的是provider还是consumer
         int i = path.lastIndexOf('/');
         if (i > 0) {
+            // 创建节点，需要注意的是，这里的create()方法进行的是递归调用，这是因为zookeeper创建节点时
+            // 只能一级一级的创建，因而其每次都是取"/"前面的一部分来创建，只有当前节点已经存在的情况下，
+            // 上面的checkExists()才会为true，而且这里，由于zookeeper规定，除了叶节点以外，其余所有的
+            // 节点都必须为非临时节点，因而这里第二个参数传入的是false，这也是前面的if判断能通过的原因
             create(path.substring(0, i), false);
         }
         if (ephemeral) {
+            // 创建临时节点，具体的创建工作交由子类进行，也就是下面的代码
             createEphemeral(path);
         } else {
+            // 创建持久节点，具体的创建工作交由子类进行，也就是下面的代码
             createPersistent(path);
         }
     }
@@ -122,11 +131,11 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
     }
 
     @Override
-    public void removeDataListener(String path, DataListener listener ){
+    public void removeDataListener(String path, DataListener listener) {
         ConcurrentMap<DataListener, TargetDataListener> dataListenerMap = listeners.get(path);
         if (dataListenerMap != null) {
             TargetDataListener targetListener = dataListenerMap.remove(listener);
-            if(targetListener != null){
+            if (targetListener != null) {
                 removeTargetDataListener(path, targetListener);
             }
         }

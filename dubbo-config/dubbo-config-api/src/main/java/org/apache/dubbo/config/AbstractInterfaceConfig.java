@@ -255,7 +255,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
             if (StringUtils.isNotEmpty(appGroup)) {
                 appConfigContent = dynamicConfiguration.getConfig
                         (StringUtils.isNotEmpty(configCenter.getAppConfigFile()) ? configCenter.getAppConfigFile() : configCenter.getConfigFile(),
-                         appGroup
+                                appGroup
                         );
             }
             try {
@@ -278,7 +278,6 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
     }
 
     /**
-     *
      * Load the registry and conversion it to {@link URL}, the priority order is: system property > dubbo registry config
      *
      * @param provider whether it is the provider side
@@ -287,28 +286,41 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
     protected List<URL> loadRegistries(boolean provider) {
         // check && override if necessary
         List<URL> registryList = new ArrayList<URL>();
+        // 如果registries为空,直接返回空集合
         if (CollectionUtils.isNotEmpty(registries)) {
+            // 遍历注册中心配置集合registries
             for (RegistryConfig config : registries) {
+                // 获取到地址
                 String address = config.getAddress();
                 if (StringUtils.isEmpty(address)) {
                     address = Constants.ANYHOST_VALUE;
                 }
+                // 如果地址为N/A,则跳过
                 if (!RegistryConfig.NO_AVAILABLE.equalsIgnoreCase(address)) {
                     Map<String, String> map = new HashMap<String, String>();
+                    // 添加ApplicationConfig中的字段信息到map中
                     appendParameters(map, application);
+                    // 添加RegistryConfig字段信息到map中
                     appendParameters(map, config);
+                    // 添加path
                     map.put(Constants.PATH_KEY, RegistryService.class.getName());
                     appendRuntimeParameters(map);
+                    // 如果map中没有protocol,则默认为使用dubbo协议
                     if (!map.containsKey(Constants.PROTOCOL_KEY)) {
                         map.put(Constants.PROTOCOL_KEY, Constants.DUBBO_PROTOCOL);
                     }
+                    // 解析得到URL列表,address可能包含多个注册中心ip,因此解析得到的是一个URL列表
                     List<URL> urls = UrlUtils.parseURLs(address, map);
 
+                    // 遍历URL 列表
                     for (URL url : urls) {
+                        // 将URL协议头设置为registry，并将协议设置为registry,这也是后面调用的是RegistryProtocol的export()方法原因
                         url = URLBuilder.from(url)
                                 .addParameter(Constants.REGISTRY_KEY, url.getProtocol())
                                 .setProtocol(Constants.REGISTRY_PROTOCOL)
                                 .build();
+                        // 通过判断条件,决定是否添加url到registryList中,条件如下:
+                        // 如果是服务提供者,并且是注册中心服务或者是消费者端,并且是订阅服务,则加入到registryList
                         if ((provider && url.getParameter(Constants.REGISTER_KEY, true))
                                 || (!provider && url.getParameter(Constants.SUBSCRIBE_KEY, true))) {
                             registryList.add(url);
@@ -321,7 +333,6 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
     }
 
     /**
-     *
      * Load the monitor config from the system properties and conversation it to {@link URL}
      *
      * @param registryURL
@@ -396,7 +407,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
      * methods configured in the configuration file are included in the interface of remote service
      *
      * @param interfaceClass the interface of remote service
-     * @param methods the methods configured
+     * @param methods        the methods configured
      */
     protected void checkInterfaceAndMethods(Class<?> interfaceClass, List<MethodConfig> methods) {
         // interface cannot be null
@@ -516,12 +527,12 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
             if (CollectionUtils.isEmpty(registries)) {
                 setRegistries(
                         ConfigManager.getInstance().getDefaultRegistries()
-                        .filter(CollectionUtils::isNotEmpty)
-                        .orElseGet(() -> {
-                            RegistryConfig registryConfig = new RegistryConfig();
-                            registryConfig.refresh();
-                            return Arrays.asList(registryConfig);
-                        })
+                                .filter(CollectionUtils::isNotEmpty)
+                                .orElseGet(() -> {
+                                    RegistryConfig registryConfig = new RegistryConfig();
+                                    registryConfig.refresh();
+                                    return Arrays.asList(registryConfig);
+                                })
                 );
             }
         } else {

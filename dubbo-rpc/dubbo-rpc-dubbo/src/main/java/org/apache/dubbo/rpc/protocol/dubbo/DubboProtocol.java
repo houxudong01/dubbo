@@ -260,16 +260,24 @@ public class DubboProtocol extends AbstractProtocol {
         return DEFAULT_PORT;
     }
 
+    /**
+     * 该方法主要做了三件事：
+     * 1. 注册stub事件分发器；
+     * 2. 开启服务；
+     * 3. 注册序列化优化器类。
+     */
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
         URL url = invoker.getUrl();
 
         // export service.
         String key = serviceKey(url);
+        // 创建DubboExporter
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
         exporterMap.put(key, exporter);
 
         //export an stub service for dispatching event
+        // 这里主要是构建Stub的事件分发器，该分发器用于在消费者端进行Stub事件的分发
         Boolean isStubSupportEvent = url.getParameter(Constants.STUB_EVENT_KEY, Constants.DEFAULT_STUB_EVENT);
         Boolean isCallbackservice = url.getParameter(Constants.IS_CALLBACK_SERVICE, false);
         if (isStubSupportEvent && !isCallbackservice) {
@@ -285,7 +293,11 @@ public class DubboProtocol extends AbstractProtocol {
             }
         }
 
+        // 开启服务
         openServer(url);
+
+        // 该方法的主要作用是对序列化进行优化，其会获取配置的实现了SerializationOptimizer接口的配置类，
+        // 然后通过其getSerializableClasses()方法获取序列化类，通过这些类来进行序列化的优化
         optimizeSerialization(url);
 
         return exporter;
@@ -296,12 +308,14 @@ public class DubboProtocol extends AbstractProtocol {
         String key = url.getAddress();
         //client can export a service which's only for server to invoke
         boolean isServer = url.getParameter(Constants.IS_SERVER_KEY, true);
+        // 采用双重检查来判断对应于当前服务的server是否已经创建，如果没有创建，则创建一个新的，并且缓存起来
         if (isServer) {
             ExchangeServer server = serverMap.get(key);
             if (server == null) {
                 synchronized (this) {
                     server = serverMap.get(key);
                     if (server == null) {
+                        // 创建并缓存新的 server
                         serverMap.put(key, createServer(url));
                     }
                 }
@@ -320,6 +334,7 @@ public class DubboProtocol extends AbstractProtocol {
                 .addParameterIfAbsent(Constants.HEARTBEAT_KEY, String.valueOf(Constants.DEFAULT_HEARTBEAT))
                 .addParameter(Constants.CODEC_KEY, DubboCodec.NAME)
                 .build();
+        // 获取所使用的 server 类型，默认是 Netty
         String str = url.getParameter(Constants.SERVER_KEY, Constants.DEFAULT_REMOTING_SERVER);
 
         if (str != null && str.length() > 0 && !ExtensionLoader.getExtensionLoader(Transporter.class).hasExtension(str)) {
@@ -328,11 +343,14 @@ public class DubboProtocol extends AbstractProtocol {
 
         ExchangeServer server;
         try {
+            // 通过Exchangers.bind()方法进行服务的绑定
             server = Exchangers.bind(url, requestHandler);
         } catch (RemotingException e) {
             throw new RpcException("Fail to start server(url: " + url + ") " + e.getMessage(), e);
         }
 
+        // 获取client参数所指定的值，该值指定了当前client所使用的传输层服务，比如netty或mina。
+        // 然后判断当前SPI所提供的传输层服务是否包含所指定的服务类型，如果不包含，则抛出异常
         str = url.getParameter(Constants.CLIENT_KEY);
         if (str != null && str.length() > 0) {
             Set<String> supportedTypes = ExtensionLoader.getExtensionLoader(Transporter.class).getSupportedExtensions();

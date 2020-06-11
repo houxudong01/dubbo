@@ -47,12 +47,16 @@ public class Transporters {
         if (handlers == null || handlers.length == 0) {
             throw new IllegalArgumentException("handlers == null");
         }
+
+        // 判断传入的Handler是否只有一个，如果只有一个，则直接使用该handler，如果存在多个，
+        // 则使用ChannelHandlerDispatcher将这些handler包裹起来进行分发
         ChannelHandler handler;
         if (handlers.length == 1) {
             handler = handlers[0];
         } else {
             handler = new ChannelHandlerDispatcher(handlers);
         }
+        // 通过配置指定的Transporter进行服务的绑定，这里默认使用的是NettyTransporter
         return getTransporter().bind(url, handler);
     }
 

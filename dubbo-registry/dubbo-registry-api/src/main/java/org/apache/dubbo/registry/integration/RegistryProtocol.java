@@ -156,7 +156,10 @@ public class RegistryProtocol implements Protocol {
     }
 
     public void register(URL registryUrl, URL registeredProviderUrl) {
+        // 通过RegistryFactory获取一个Registry对象，该对象的主要作用是进行服务的注册，
+        // 这里默认返回的是ZookeeperRegistry
         Registry registry = registryFactory.getRegistry(registryUrl);
+        // FailbackRegistry.register()
         registry.register(registeredProviderUrl);
     }
 
@@ -165,39 +168,70 @@ public class RegistryProtocol implements Protocol {
         registry.unregister(registeredProviderUrl);
     }
 
+    /**
+     * 该方法主要完成三部分工作：
+     * 1.将服务与本地的某个端口号进行绑定，从而实现服务暴露的功能；
+     * 2.根据配置得到一个服务注册对象Registry，然后对其进行注册；
+     * 3.创建一个配置被重写的监听器，并且注册该监听器，从而实现配置被重写时能够动态的使用新的配置进行服务的配置。
+     *
+     * @param originInvoker
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
+        // 获取服务注册相关的数据
+        // zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-annotation-provider&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.0.102%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddubbo-demo-annotation-provider%26bean.name%3Dproviders%3Adubbo%3Aorg.apache.dubbo.demo.DemoService%26bind.ip%3D192.168.0.102%26bind.port%3D20880%26default.deprecated%3Dfalse%26default.dynamic%3Dfalse%26default.register%3Dtrue%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dfalse%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D83319%26register%3Dtrue%26release%3D%26side%3Dprovider%26timestamp%3D1591886423297&pid=83319&timestamp=1591886423280
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
+        // 获取provider相关的配置数据
+        // dubbo://192.168.0.102:20880/org.apache.dubbo.demo.DemoService?anyhost=true&application=dubbo-demo-annotation-provider&bean.name=providers:dubbo:org.apache.dubbo.demo.DemoService&bind.ip=192.168.0.102&bind.port=20880&default.deprecated=false&default.dynamic=false&default.register=true&deprecated=false&dubbo=2.0.2&dynamic=false&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello&pid=83319&register=true&release=&side=provider&timestamp=1591886423297
+        //
         URL providerUrl = getProviderUrl(originInvoker);
 
         // Subscribe the override data
         // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
+        // 对provider的部分配置信息进行覆盖，重写的工作主要是委托给Configurator进行，
+        // 这里OverrideListener的作用主要是在当前服务的配置信息发生更改时，对原有的配置进行重写，
+        // 并且会判断是否需要对当前的服务进行重新暴露
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
 
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
+
         //export invoker
+        // 进行服务的本地暴露，本质上就是根据配置使用Netty将服务绑定本地的某个端口，从而完成服务暴露工作
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
+        // 根据配置获取对应的Registry对象，常见的有ZookeeperRegistry和RedisRegistry，
+        // 默认使用的是 ZookeeperRegistry，本文则以Zookeeper为例进行讲解
         final Registry registry = getRegistry(originInvoker);
         final URL registeredProviderUrl = getRegisteredProviderUrl(providerUrl, registryUrl);
+
+        // 将当前的Invoker对象注册到一个全局的providerInvokers中进行缓存，该Map对象保存了所有的已经暴露了的服务
         ProviderInvokerWrapper<T> providerInvokerWrapper = ProviderConsumerRegTable.registerProvider(originInvoker,
                 registryUrl, registeredProviderUrl);
+
         //to judge if we need to delay publish
+        // 除非主动配置不进行注册，那么这里将会返回true
         boolean register = registeredProviderUrl.getParameter("register", true);
         if (register) {
+            // 进行服务注册的代码，主要是通过Zookeeper的客户端CuratorFramework进行服务的注册
             register(registryUrl, registeredProviderUrl);
+            // 将当前Invoker标识为已经注册完成
             providerInvokerWrapper.setReg(true);
         }
 
         // Deprecated! Subscribe to override rules in 2.6.x or before.
+        // 注册配置被更改的监听事件，将配置被更改时将会触发相应的listener，2.6.x 版本及后续版本已废弃
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
+        // 设置相关的URL对象，并且使用DestroyableExporter对exporter进行封装返回
         exporter.setRegisterUrl(registeredProviderUrl);
         exporter.setSubscribeUrl(overrideSubscribeUrl);
         //Ensure that a new exporter instance is returned every time export
@@ -213,8 +247,13 @@ public class RegistryProtocol implements Protocol {
 
     @SuppressWarnings("unchecked")
     private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker, URL providerUrl) {
+        // 获取当前Invoker对应的key，默认为group/interface/version的格式
         String key = getCacheKey(originInvoker);
 
+        // 该方法本质上是调用DubboProtocol.export()方法进行服务暴露，但并不是先走DubboProtocol的export方法，
+        // 而是先走ProtocolListenerWrapper的wrapper方法， 因为ProtocolListenerWrapper对DubboProtocol做了一层包装，在服务暴露上做了
+        // 监听器功能的增强，也就是加上了监听器
+        // ExporterChangeableWrapper的主要作用则是进行unexport()时的一些清理工作
         return (ExporterChangeableWrapper<T>) bounds.computeIfAbsent(key, s -> {
             Invoker<?> invokerDelegete = new InvokerDelegate<>(originInvoker, providerUrl);
             return new ExporterChangeableWrapper<>((Exporter<T>) protocol.export(invokerDelegete), originInvoker);

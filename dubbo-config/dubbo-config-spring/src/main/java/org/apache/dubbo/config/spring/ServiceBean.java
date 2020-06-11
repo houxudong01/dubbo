@@ -43,6 +43,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.support.AbstractApplicationContext;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -83,10 +84,22 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
         this.service = service;
     }
 
+    /**
+     * ServiceBean 实现了ApplicationContextAware 接口，所以 Spring 容器会在初始化时候调用
+     * {@link ServiceBean#setApplicationContext(ApplicationContext)} 为其设置 applicationContext
+     *
+     * @param applicationContext
+     */
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
+        // 给SpringExtensionFactory注入Spring容器
         SpringExtensionFactory.addApplicationContext(applicationContext);
+
+        /**
+         * 增加一个监听器，当 Spring 容器初始化完成后会发送event事件通知给{@link ServiceBean#onApplicationEvent(ContextRefreshedEvent)}，
+         * 发送事件通知的位置：{@link AbstractApplicationContext#refresh()}方法中的的finishRefresh()内的publishEvent()方法
+         */
         supportedApplicationListener = addApplicationListener(applicationContext, this);
     }
 
@@ -316,8 +329,10 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
      */
     @Override
     public void export() {
+        // 调用 ServiceBean.export()方法暴露服务
         super.export();
         // Publish ServiceBeanExportedEvent
+        // 发布暴露服务的事件
         publishExportEvent();
     }
 

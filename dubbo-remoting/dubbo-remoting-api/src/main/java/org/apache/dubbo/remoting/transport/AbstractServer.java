@@ -51,15 +51,19 @@ public abstract class AbstractServer extends AbstractEndpoint implements Server 
         super(url, handler);
         localAddress = getUrl().toInetSocketAddress();
 
+        // 从 URL 中获取要绑定的ip和端口号等信息
         String bindIp = getUrl().getParameter(Constants.BIND_IP_KEY, getUrl().getHost());
         int bindPort = getUrl().getParameter(Constants.BIND_PORT_KEY, getUrl().getPort());
+
         if (url.getParameter(Constants.ANYHOST_KEY, false) || NetUtils.isInvalidLocalHost(bindIp)) {
             bindIp = Constants.ANYHOST_VALUE;
         }
+        // 在本地绑定指定的ip和端口
         bindAddress = new InetSocketAddress(bindIp, bindPort);
         this.accepts = url.getParameter(Constants.ACCEPTS_KEY, Constants.DEFAULT_ACCEPTS);
         this.idleTimeout = url.getParameter(Constants.IDLE_TIMEOUT_KEY, Constants.DEFAULT_IDLE_TIMEOUT);
         try {
+            // 通过创建的InetSocketAddress对象，将真正的绑定过程交由子类进行
             doOpen();
             if (logger.isInfoEnabled()) {
                 logger.info("Start " + getClass().getSimpleName() + " bind " + getBindAddress() + ", export " + getLocalAddress());
@@ -69,6 +73,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Server 
                     + " on " + getLocalAddress() + ", cause: " + t.getMessage(), t);
         }
         //fixme replace this with better method
+        // 这里的DataStore只是一个本地缓存的数据仓库，主要是对一些大对象进行缓存
         DataStore dataStore = ExtensionLoader.getExtensionLoader(DataStore.class).getDefaultExtension();
         executor = (ExecutorService) dataStore.get(Constants.EXECUTOR_SERVICE_COMPONENT_KEY, Integer.toString(url.getPort()));
     }

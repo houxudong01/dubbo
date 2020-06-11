@@ -41,6 +41,9 @@ public class HeaderExchanger implements Exchanger {
 
     @Override
     public ExchangeServer bind(URL url, ExchangeHandler handler) throws RemotingException {
+        // 这里的bind()方法主要是创建了三个Handler，并且最后一个Handler将传入的ExchangeHandler包裹起来了。
+        // 很明显这里使用的是责任链模式，这几个handler通过统一的构造函数将下一个handler的实例注入到当前handler中。
+        // 其实我们也就能够理解，最终通过netty进行的调用过程就是基于这些责任链的。
         return new HeaderExchangeServer(Transporters.bind(url, new DecodeHandler(new HeaderExchangeHandler(handler))));
     }
 

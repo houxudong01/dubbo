@@ -59,6 +59,7 @@ public class MockFilter implements Filter {
         this.protocol = protocol;
     }
 
+    @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         return invoker.invoke(invocation);
     }

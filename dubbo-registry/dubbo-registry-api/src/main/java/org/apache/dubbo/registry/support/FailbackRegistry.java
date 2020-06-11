@@ -223,16 +223,20 @@ public abstract class FailbackRegistry extends AbstractRegistry {
 
     @Override
     public void register(URL url) {
+        // 将当前URL对象保存到已注册的URL对象列表中
         super.register(url);
+        // 移除之前注册失败的记录
         removeFailedRegistered(url);
         removeFailedUnregistered(url);
         try {
             // Sending a registration request to the server side
+            // 将真正的注册过程委托给ZookeeperRegistry进行
             doRegister(url);
         } catch (Exception e) {
             Throwable t = e;
 
             // If the startup detection is opened, the Exception is thrown directly.
+            // 下面的过程主要是在注册失败的情况下，将当前URL添加到注册失败的URL列表中
             boolean check = getUrl().getParameter(Constants.CHECK_KEY, true)
                     && url.getParameter(Constants.CHECK_KEY, true)
                     && !Constants.CONSUMER_PROTOCOL.equals(url.getProtocol());
@@ -247,6 +251,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             }
 
             // Record a failed registration request to a failed list, retry regularly
+            // 将当前URL添加到注册失败的URL列表中
             addFailedRegistered(url);
         }
     }
