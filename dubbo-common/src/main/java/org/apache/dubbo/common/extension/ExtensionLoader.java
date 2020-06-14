@@ -100,7 +100,7 @@ public class ExtensionLoader<T> {
     private final Class<?> type;
 
     /**
-     * 对象工厂
+     * 对象工厂，Dubbo 实现 IOC 的核心
      * 调用 {@link #injectExtension(Object)} 向扩展对象中注入依赖属性
      */
     private final ExtensionFactory objectFactory;
@@ -169,6 +169,7 @@ public class ExtensionLoader<T> {
 
     private ExtensionLoader(Class<?> type) {
         this.type = type;
+        // 当type不是 ExtensionFactory 时，加载并创建SpiExtensionFactory和SpringExtensionFactory，为后面的IOC依赖注入作准备
         objectFactory = (type == ExtensionFactory.class ? null : ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());
     }
 
@@ -684,8 +685,11 @@ public class ExtensionLoader<T> {
 
     private T injectExtension(T instance) {
         try {
+            // objectFactory里面维护了SpringExtensionFactory和SpiExtensionFactory类型的实例
             if (objectFactory != null) {
+                // 遍历实例 instance 的所有方法,寻找set开头且参数为1个,且方法权限为public的方法
                 for (Method method : instance.getClass().getMethods()) {
+                    // 寻找set方法
                     if (isSetter(method)) {
                         /**
                          * Check {@link DisableInject} to see if we need auto injection for this property
@@ -693,14 +697,18 @@ public class ExtensionLoader<T> {
                         if (method.getAnnotation(DisableInject.class) != null) {
                             continue;
                         }
+                        // 获取参数类型
                         Class<?> pt = method.getParameterTypes()[0];
                         if (ReflectUtils.isPrimitives(pt)) {
                             continue;
                         }
                         try {
+                            // 获取属性名
                             String property = getSetterProperty(method);
+                            // 从容器中获取类型为pt并且名字为property的实例
                             Object object = objectFactory.getExtension(pt, property);
                             if (object != null) {
+                                // 获取之后通过反射设置依赖实例
                                 method.invoke(instance, object);
                             }
                         } catch (Exception e) {

@@ -55,7 +55,11 @@ public class ProtocolFilterWrapper implements Protocol {
      */
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         Invoker<T> last = invoker;
-        // 获得过滤器的所有自动激活扩展实现类实例集合
+        // 获得过滤器的所有自动激活扩展实现类实例集合，这里key是service.filter，也就是说，其对应的配置位置在
+        // <dubbo:service/>标签的filter属性中。group是provider，这个参数指明了这些Filter中
+        // 只有provider类型的Filter才会在这里被组装进来。
+        // 从整体上看，如果在配置文件中通过filter属性指定了各个filter的名称，那么这里就会通过SPI
+        // 读取指定文件中的Filter实现子类，然后取其中的provider组内的Filter将其返回，以便进行后续的组装
         List<Filter> filters = ExtensionLoader.getExtensionLoader(Filter.class).getActivateExtension(invoker.getUrl(), key, group);
         if (!filters.isEmpty()) {
             for (int i = filters.size() - 1; i >= 0; i--) {

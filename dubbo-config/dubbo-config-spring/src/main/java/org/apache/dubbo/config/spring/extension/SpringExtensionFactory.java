@@ -74,6 +74,8 @@ public class SpringExtensionFactory implements ExtensionFactory {
             return null;
         }
 
+        // Spring是先根据名字去取,取不到再根据类型去取
+
         for (ApplicationContext context : contexts) {
             if (context.containsBean(name)) {
                 Object bean = context.getBean(name);

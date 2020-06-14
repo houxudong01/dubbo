@@ -17,6 +17,7 @@
 package org.apache.dubbo.common.extension;
 
 /**
+ * Dubbo IOC 实现核心接口
  * ExtensionFactory
  */
 @SPI
