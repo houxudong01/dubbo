@@ -27,11 +27,27 @@ import org.apache.dubbo.rpc.RpcException;
  * @date 2017/11/23
  */
 public class ConsumerInvokerWrapper<T> implements Invoker {
+    /**
+     * Invoker 对象
+     */
     private Invoker<T> invoker;
+    /**
+     * 原始 URL
+     */
     private URL originUrl;
+    /**
+     * 注册中心 URL
+     */
     private URL registryUrl;
+    /**
+     * 消费者 URL
+     */
     private URL consumerUrl;
+    /**
+     * 注册中心 Directory
+     */
     private RegistryDirectory registryDirectory;
+
 
     public ConsumerInvokerWrapper(Invoker<T> invoker, URL registryUrl, URL consumerUrl, RegistryDirectory registryDirectory) {
         this.invoker = invoker;

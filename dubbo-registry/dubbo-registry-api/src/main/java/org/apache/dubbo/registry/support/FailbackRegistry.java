@@ -44,22 +44,39 @@ public abstract class FailbackRegistry extends AbstractRegistry {
 
     /*  retry task map */
 
+    /**
+     * 发起注册失败的 URL 集合
+     */
     private final ConcurrentMap<URL, FailedRegisteredTask> failedRegistered = new ConcurrentHashMap<URL, FailedRegisteredTask>();
 
+    /**
+     * 取消注册失败的 URL 集合
+     */
     private final ConcurrentMap<URL, FailedUnregisteredTask> failedUnregistered = new ConcurrentHashMap<URL, FailedUnregisteredTask>();
 
+    /**
+     * 发起订阅失败的 监听器 集合
+     */
     private final ConcurrentMap<Holder, FailedSubscribedTask> failedSubscribed = new ConcurrentHashMap<Holder, FailedSubscribedTask>();
 
+    /**
+     * 取消订阅失败的 监听器 集合
+     */
     private final ConcurrentMap<Holder, FailedUnsubscribedTask> failedUnsubscribed = new ConcurrentHashMap<Holder, FailedUnsubscribedTask>();
 
+    /**
+     * 通知失败的 监听器 集合
+     */
     private final ConcurrentMap<Holder, FailedNotifiedTask> failedNotified = new ConcurrentHashMap<Holder, FailedNotifiedTask>();
 
     /**
      * The time in milliseconds the retryExecutor will wait
+     * 重试周期，毫秒数
      */
     private final int retryPeriod;
 
     // Timer for failure retry, regular check if there is a request for failure, and if there is, an unlimited retry
+    // 失败重试计时器，定期检查是否有失败请求，如果有，则无限制重试
     private final HashedWheelTimer retryTimer;
 
     public FailbackRegistry(URL url) {
@@ -289,19 +306,23 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     @Override
     public void subscribe(URL url, NotifyListener listener) {
         super.subscribe(url, listener);
+        // 移除出 `failedSubscribed` `failedUnsubscribed` `failedNotified`
         removeFailedSubscribed(url, listener);
         try {
             // Sending a subscription request to the server side
+            // 向注册中心发送订阅请求
             doSubscribe(url, listener);
         } catch (Exception e) {
             Throwable t = e;
 
+            // 如果有缓存的 URL 集合，进行通知。后续订阅成功后，会使用最新的 URL 集合，进行通知。
             List<URL> urls = getCacheUrls(url);
             if (CollectionUtils.isNotEmpty(urls)) {
                 notify(url, listener, urls);
                 logger.error("Failed to subscribe " + url + ", Using cached list: " + urls + " from cache file: " + getUrl().getParameter(Constants.FILE_KEY, System.getProperty("user.home") + "/dubbo-registry-" + url.getHost() + ".cache") + ", cause: " + t.getMessage(), t);
             } else {
                 // If the startup detection is opened, the Exception is thrown directly.
+                // 如果开启了启动时检测，则直接抛出异常
                 boolean check = getUrl().getParameter(Constants.CHECK_KEY, true)
                         && url.getParameter(Constants.CHECK_KEY, true);
                 boolean skipFailback = t instanceof SkipFailbackWrapperException;
@@ -316,6 +337,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             }
 
             // Record a failed registration request to a failed list, retry regularly
+            // 将失败的订阅请求记录到 `failedSubscribed`，定时重试
             addFailedSubscribed(url, listener);
         }
     }

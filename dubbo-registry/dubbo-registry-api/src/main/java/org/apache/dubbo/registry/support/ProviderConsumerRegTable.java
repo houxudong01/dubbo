@@ -30,15 +30,37 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
+ * 服务提供者和消费者注册表，存储 JVM 进程内自己的服务提供者和消费者的 Invoker
+ *
  * @date 2017/11/23
  */
 public class ProviderConsumerRegTable {
+    /**
+     * 服务提供者 Invoker 集合
+     * key：服务提供者 URL 服务键
+     */
     public static ConcurrentHashMap<String, ConcurrentMap<Invoker, ProviderInvokerWrapper>> providerInvokers = new ConcurrentHashMap<>();
+    /**
+     * 服务消费者 Invoker 集合
+     * key：服务消费者 URL 服务键
+     */
     public static ConcurrentHashMap<String, Set<ConsumerInvokerWrapper>> consumerInvokers = new ConcurrentHashMap<>();
 
+    /**
+     * 注册 Provider Invoker
+     *
+     * @param invoker     invoker 对象
+     * @param registryUrl 注册中心 URL
+     * @param providerUrl 服务提供者 URL
+     * @param <T>
+     * @return
+     */
     public static <T> ProviderInvokerWrapper<T> registerProvider(Invoker<T> invoker, URL registryUrl, URL providerUrl) {
+        // 创建 ProviderInvokerWrapper 对象
         ProviderInvokerWrapper<T> wrapperInvoker = new ProviderInvokerWrapper<>(invoker, registryUrl, providerUrl);
+        // 服务键
         String serviceUniqueName = providerUrl.getServiceKey();
+        // 添加到集合
         ConcurrentMap<Invoker, ProviderInvokerWrapper> invokers = providerInvokers.get(serviceUniqueName);
         if (invokers == null) {
             providerInvokers.putIfAbsent(serviceUniqueName, new ConcurrentHashMap<>());
@@ -64,6 +86,7 @@ public class ProviderConsumerRegTable {
         }
         return new HashSet<>(invokers.values());
     }
+
 
     public static <T> ProviderInvokerWrapper<T> getProviderWrapper(URL registeredProviderUrl, Invoker<T> invoker) {
         String serviceUniqueName = registeredProviderUrl.getServiceKey();
