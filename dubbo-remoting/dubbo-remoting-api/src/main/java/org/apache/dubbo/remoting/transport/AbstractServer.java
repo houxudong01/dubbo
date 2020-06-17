@@ -185,6 +185,12 @@ public abstract class AbstractServer extends AbstractEndpoint implements Server 
         return idleTimeout;
     }
 
+    /**
+     * 当消费端发起TCP连接完成后，服务提供方的Server的connected()方法会被激活
+     *
+     * @param ch
+     * @throws RemotingException
+     */
     @Override
     public void connected(Channel ch) throws RemotingException {
         // If the server has entered the shutdown process, reject any new connection
@@ -200,6 +206,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Server 
             ch.close();
             return;
         }
+        // 一个波折的过程后最终会调用 DubboProtocol 的connected() 方法
         super.connected(ch);
     }
 

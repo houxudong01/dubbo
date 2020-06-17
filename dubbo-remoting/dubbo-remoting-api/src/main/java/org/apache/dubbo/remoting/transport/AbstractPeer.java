@@ -123,6 +123,7 @@ public abstract class AbstractPeer implements Endpoint, ChannelHandler {
         if (closed) {
             return;
         }
+        // 最终会调用 DubboProtocol 的connected() 方法
         handler.connected(ch);
     }
 

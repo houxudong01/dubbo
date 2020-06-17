@@ -43,6 +43,7 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
     public void connected(Channel channel) throws RemotingException {
         setReadTimestamp(channel);
         setWriteTimestamp(channel);
+        // 最终会调用 DubboProtocol 的connected() 方法
         handler.connected(channel);
     }
 

@@ -399,7 +399,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         if (metadataReportConfig == null || !metadataReportConfig.isValid()) {
             return null;
         }
-        return MetadataReportService.instance(this::loadMetadataReporterURL);
+        return MetadataReportService.instance(() -> loadMetadataReporterURL());
     }
 
     /**

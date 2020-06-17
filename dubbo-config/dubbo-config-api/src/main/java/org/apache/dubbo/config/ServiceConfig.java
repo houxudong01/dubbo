@@ -538,6 +538,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             }
         }
         // export service
+        // 拼接 URL 对象
         String host = this.findConfigedHosts(protocolConfig, registryURLs, map);
         Integer port = this.findConfigedPorts(protocolConfig, name, map);
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
@@ -548,21 +549,24 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                     .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
         }
 
+        // 暴露服务，本地服务 和 远程服务
         String scope = url.getParameter(Constants.SCOPE_KEY);
         // don't export when none is configured
+        // 如果 scope 是 none 则不暴露服务
         if (!Constants.SCOPE_NONE.equalsIgnoreCase(scope)) {
 
             // export to local if the config is not remote (export to remote only when config is remote)
-            // 暴露到本地
+            // scope 不是 remote 时 暴露到本地
             if (!Constants.SCOPE_REMOTE.equalsIgnoreCase(scope)) {
                 exportLocal(url);
             }
             // export to remote if the config is not local (export to local only when config is local)
-            // 暴露到远程
+            // scope 不是 local 时 暴露到远程
             if (!Constants.SCOPE_LOCAL.equalsIgnoreCase(scope)) {
                 if (logger.isInfoEnabled()) {
                     logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
                 }
+                // 如果有服务注册中心地址
                 if (CollectionUtils.isNotEmpty(registryURLs)) {
                     for (URL registryURL : registryURLs) {
                         // 添加动态参数,此动态参数是决定Zookeeper创建临时节点还是持久节点
@@ -589,16 +593,23 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         exporters.add(exporter);
                     }
-                } else {
+                }
+                // 无注册中心地址，直连方式
+                else {
                     Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, url);
                     DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
                     Exporter<?> exporter = protocol.export(wrapperInvoker);
                     exporters.add(exporter);
                 }
+
                 /**
                  * @since 2.7.0
                  * ServiceData Store
+                 * 元数据存储，在Dubbo 2.7.0 中对服务元数据做了改造，把原来都保存到服务注册中心的元数据进行了分类存储，
+                 * 注册中心将只用于存储关键服务信息，比如服务提供者地址、完整的接口定义等。Dubbo 2.7.0 使用更专业的配置中心，
+                 * 比如Nacos、Apollo、Consul和Etcd等，提供更灵活、更丰富的配置规则，包括服务和应用不同粒度的配置、更丰富的路由规则和集中式的动态参数规划等。
+                 * 以下代码将元数据保存到指定的配置中心
                  */
                 MetadataReportService metadataReportService = null;
                 if ((metadataReportService = getMetadataReportService()) != null) {

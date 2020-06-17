@@ -89,6 +89,13 @@ public class DubboProtocol extends AbstractProtocol {
 
     private ExchangeHandler requestHandler = new ExchangeHandlerAdapter() {
 
+        /**
+         * 执行具体的服务
+         * @param channel
+         * @param message
+         * @return
+         * @throws RemotingException
+         */
         @Override
         public CompletableFuture<Object> reply(ExchangeChannel channel, Object message) throws RemotingException {
 
@@ -99,6 +106,7 @@ public class DubboProtocol extends AbstractProtocol {
             }
 
             Invocation inv = (Invocation) message;
+            // 获取调用方法对应到的DubboExporter对象暴露的 Invoker 对象
             Invoker<?> invoker = getInvoker(channel, inv);
             // need to consider backward-compatibility if it's a callback
             if (Boolean.TRUE.toString().equals(inv.getAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
@@ -123,10 +131,13 @@ public class DubboProtocol extends AbstractProtocol {
                     return null;
                 }
             }
+            // 获取上下文对象，并设置对端地址
             RpcContext rpcContext = RpcContext.getContext();
             rpcContext.setRemoteAddress(channel.getRemoteAddress());
+            // 执行 invoker 调用链，最终调用了服务提供方启动时AbstractProxyInvoker代理类创建的 invoke() 方法
             Result result = invoker.invoke(inv);
 
+            // 写回结果
             if (result instanceof AsyncRpcResult) {
                 return ((AsyncRpcResult) result).getResultFuture().thenApply(r -> (Object) r);
 
@@ -147,6 +158,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         @Override
         public void connected(Channel channel) throws RemotingException {
+            // 调用链路上追后的 connected 方法
             invoke(channel, Constants.ON_CONNECT_KEY);
         }
 
@@ -159,7 +171,9 @@ public class DubboProtocol extends AbstractProtocol {
         }
 
         private void invoke(Channel channel, String methodKey) {
+            // 创建 Invocation
             Invocation invocation = createInvocation(channel, channel.getUrl(), methodKey);
+            // 如果不为 null 则调用 received 处理
             if (invocation != null) {
                 try {
                     received(channel, invocation);
@@ -170,11 +184,13 @@ public class DubboProtocol extends AbstractProtocol {
         }
 
         private Invocation createInvocation(Channel channel, URL url, String methodKey) {
+            // 如果 url 里面不包含 key，则直接返回null
             String method = url.getParameter(methodKey);
             if (method == null || method.length() == 0) {
                 return null;
             }
 
+            // 根据 method 创建 RPCInvocation 对象
             RpcInvocation invocation = new RpcInvocation(method, new Class<?>[0], new Object[0]);
             invocation.setAttachment(Constants.PATH_KEY, url.getPath());
             invocation.setAttachment(Constants.GROUP_KEY, url.getParameter(Constants.GROUP_KEY));

@@ -100,13 +100,16 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         Object msg = req.getData();
         try {
             // handle data.
+            // 调用 DubboProtocol 的 reply 方法
             CompletableFuture<Object> future = handler.reply(channel, msg);
+            // 如果请求已完成，则设置结果并返回
             if (future.isDone()) {
                 res.setStatus(Response.OK);
                 res.setResult(future.get());
                 channel.send(res);
                 return;
             }
+            // 如果请求未完成则等返回结果后异步调用回调
             future.whenComplete((result, t) -> {
                 try {
                     if (t == null) {
@@ -190,19 +193,25 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         channel.setAttribute(KEY_READ_TIMESTAMP, System.currentTimeMillis());
         final ExchangeChannel exchangeChannel = HeaderExchangeChannel.getOrAddChannel(channel);
         try {
+            // 请求
             if (message instanceof Request) {
                 // handle request.
+                // 处理请求
                 Request request = (Request) message;
+                // 事件
                 if (request.isEvent()) {
                     handlerEvent(channel, request);
                 } else {
+                    // 需要有返回值的请求
                     if (request.isTwoWay()) {
                         handleRequest(exchangeChannel, request);
                     } else {
                         handler.received(exchangeChannel, request.getData());
                     }
                 }
-            } else if (message instanceof Response) {
+            }
+            // 响应
+            else if (message instanceof Response) {
                 handleResponse(channel, (Response) message);
             } else if (message instanceof String) {
                 if (isClientSide(channel)) {
