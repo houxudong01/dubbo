@@ -256,6 +256,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         }
         initialized = true;
         checkStubAndLocal(interfaceClass);
+        // 检查 mock 的正确性，即服务降级相关设置
         checkMock(interfaceClass);
         Map<String, String> map = new HashMap<String, String>();
 

@@ -68,19 +68,29 @@ public class MockClusterInvoker<T> implements Invoker<T> {
 
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
+
+        // 服务降级实现：
         Result result = null;
 
+        // 查看 URL 中是否有mock字段
         String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), Constants.MOCK_KEY, Boolean.FALSE.toString()).trim();
+        // 如果没有，或者值为默认的false，则说明没有设置降级策略
         if (value.length() == 0 || value.equalsIgnoreCase("false")) {
             //no mock
+            // 没有mock，正常发起远程调用
             result = this.invoker.invoke(invocation);
-        } else if (value.startsWith("force")) {
+        }
+        // 如果设置了 force:return 降级策略
+        else if (value.startsWith("force")) {
             if (logger.isWarnEnabled()) {
                 logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + directory.getUrl());
             }
             //force:direct mock
+            // 直接调用doMockInvoke()方法，返回mock值，不发起远程调用
             result = doMockInvoke(invocation, null);
-        } else {
+        }
+        // 如果设置了fail:return 降级策略，那么优先发起远程调用，如果远程调用失败则返回mock值
+        else {
             //fail-mock
             try {
                 result = this.invoker.invoke(invocation);
@@ -88,7 +98,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
                 if (e.isBiz()) {
                     throw e;
                 }
-                
+
                 if (logger.isWarnEnabled()) {
                     logger.warn("fail-mock: " + invocation.getMethodName() + " fail-mock enabled , url : " + directory.getUrl(), e);
                 }

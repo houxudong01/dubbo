@@ -87,6 +87,7 @@ final public class MockInvoker<T> implements Invoker<T> {
 
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
+        // mock类型
         String mock = getUrl().getParameter(invocation.getMethodName() + "." + Constants.MOCK_KEY);
         if (invocation instanceof RpcInvocation) {
             ((RpcInvocation) invocation).setInvoker(this);
@@ -98,7 +99,9 @@ final public class MockInvoker<T> implements Invoker<T> {
         if (StringUtils.isBlank(mock)) {
             throw new RpcException(new IllegalAccessException("mock can not be null. url :" + url));
         }
+        // 格式化类型
         mock = normalizeMock(URL.decode(mock));
+        // 根据不同的类型返回mock值
         if (mock.startsWith(Constants.RETURN_PREFIX)) {
             mock = mock.substring(Constants.RETURN_PREFIX.length()).trim();
             try {
@@ -150,11 +153,13 @@ final public class MockInvoker<T> implements Invoker<T> {
 
     @SuppressWarnings("unchecked")
     private Invoker<T> getInvoker(String mockService) {
+        // 缓存中存在则返回
         Invoker<T> invoker = (Invoker<T>) mocks.get(mockService);
         if (invoker != null) {
             return invoker;
         }
 
+        // 不存在则创建代理并缓存
         Class<T> serviceType = (Class<T>) ReflectUtils.forName(url.getServiceInterface());
         T mockObject = (T) getMockObject(mockService, serviceType);
         invoker = proxyFactory.getInvoker(mockObject, serviceType, url);
@@ -166,10 +171,12 @@ final public class MockInvoker<T> implements Invoker<T> {
 
     @SuppressWarnings("unchecked")
     public static Object getMockObject(String mockService, Class serviceType) {
+        // 如果mock类型为true或者default
         if (ConfigUtils.isDefault(mockService)) {
             mockService = serviceType.getName() + "Mock";
         }
 
+        // 反射加载字节码创建Class对象
         Class<?> mockClass = ReflectUtils.forName(mockService);
         if (!serviceType.isAssignableFrom(mockClass)) {
             throw new IllegalStateException("The mock class " + mockClass.getName() +
@@ -177,6 +184,7 @@ final public class MockInvoker<T> implements Invoker<T> {
         }
 
         try {
+            // 创建实例
             return mockClass.newInstance();
         } catch (InstantiationException e) {
             throw new IllegalStateException("No default constructor from mock class " + mockClass.getName(), e);
