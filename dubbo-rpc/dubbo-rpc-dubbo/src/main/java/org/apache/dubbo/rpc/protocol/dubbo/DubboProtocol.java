@@ -158,7 +158,7 @@ public class DubboProtocol extends AbstractProtocol {
 
         @Override
         public void connected(Channel channel) throws RemotingException {
-            // 调用链路上追后的 connected 方法
+            // 调用链路上最后的 connected 方法
             invoke(channel, Constants.ON_CONNECT_KEY);
         }
 
@@ -420,6 +420,7 @@ public class DubboProtocol extends AbstractProtocol {
         optimizeSerialization(url);
 
         // create rpc invoker.
+        // getClients(url)方法创建服务消费端的NettyClient对象
         DubboInvoker<T> invoker = new DubboInvoker<T>(serviceType, url, getClients(url), invokers);
         invokers.add(invoker);
 
@@ -429,11 +430,13 @@ public class DubboProtocol extends AbstractProtocol {
     private ExchangeClient[] getClients(URL url) {
         // whether to share connection
 
+        // 不同的服务是否共享连接
         boolean useShareConnect = false;
 
         int connections = url.getParameter(Constants.CONNECTIONS_KEY, 0);
         List<ReferenceCountExchangeClient> shareClients = null;
         // if not configured, connection is shared, otherwise, one connection for one service
+        // 如果没有配置，默认是会共享连接的
         if (connections == 0) {
             useShareConnect = true;
 
@@ -443,15 +446,20 @@ public class DubboProtocol extends AbstractProtocol {
             String shareConnectionsStr = url.getParameter(Constants.SHARE_CONNECTIONS_KEY, (String) null);
             connections = Integer.parseInt(StringUtils.isBlank(shareConnectionsStr) ? ConfigUtils.getProperty(Constants.SHARE_CONNECTIONS_KEY,
                     Constants.DEFAULT_SHARE_CONNECTIONS) : shareConnectionsStr);
+            // 获取共享的NettyClient
             shareClients = getSharedClient(url, connections);
         }
 
+        // 初始化Client
         ExchangeClient[] clients = new ExchangeClient[connections];
         for (int i = 0; i < clients.length; i++) {
+            // 如果共享的则返回已经存在的
             if (useShareConnect) {
                 clients[i] = shareClients.get(i);
 
-            } else {
+            }
+            // 否则创建一个新的
+            else {
                 clients[i] = initClient(url);
             }
         }
@@ -604,10 +612,13 @@ public class DubboProtocol extends AbstractProtocol {
         ExchangeClient client;
         try {
             // connection should be lazy
+            // 惰性连接
             if (url.getParameter(Constants.LAZY_CONNECT_KEY, false)) {
                 client = new LazyConnectExchangeClient(url, requestHandler);
 
-            } else {
+            }
+            // 即时连接
+            else {
                 client = Exchangers.connect(url, requestHandler);
             }
 
