@@ -35,42 +35,54 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class RoundRobinLoadBalance extends AbstractLoadBalance {
     public static final String NAME = "roundrobin";
-    
+
+    /**
+     * 清理周期，如果服务提供者耗时 RECYCLE_PERIOD 还没更新自己的 WeightedRoundRobin 对象，则会被自动回收
+     */
     private static int RECYCLE_PERIOD = 60000;
-    
+
     protected static class WeightedRoundRobin {
         private int weight;
         private AtomicLong current = new AtomicLong(0);
         private long lastUpdate;
+
         public int getWeight() {
             return weight;
         }
+
         public void setWeight(int weight) {
             this.weight = weight;
             current.set(0);
         }
+
         public long increaseCurrent() {
             return current.addAndGet(weight);
         }
+
         public void sel(int total) {
             current.addAndGet(-1 * total);
         }
+
         public long getLastUpdate() {
             return lastUpdate;
         }
+
         public void setLastUpdate(long lastUpdate) {
             this.lastUpdate = lastUpdate;
         }
     }
 
     private ConcurrentMap<String, ConcurrentMap<String, WeightedRoundRobin>> methodWeightMap = new ConcurrentHashMap<String, ConcurrentMap<String, WeightedRoundRobin>>();
+    /**
+     * 确保更新 methodWeighMap 的线程安全，使用到 CAS
+     */
     private AtomicBoolean updateLock = new AtomicBoolean();
-    
+
     /**
      * get invoker addr list cached for specified invocation
      * <p>
      * <b>for unit test only</b>
-     * 
+     *
      * @param invokers
      * @param invocation
      * @return
@@ -83,10 +95,12 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
         }
         return null;
     }
-    
+
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
+        // 获取调用方法的 key
         String key = invokers.get(0).getUrl().getServiceKey() + "." + invocation.getMethodName();
+        // 获取该调用方法对应的每个服务提供者的 WeightedRoundRobin 对象组成的 Map
         ConcurrentMap<String, WeightedRoundRobin> map = methodWeightMap.get(key);
         if (map == null) {
             methodWeightMap.putIfAbsent(key, new ConcurrentHashMap<String, WeightedRoundRobin>());
@@ -97,6 +111,8 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
         long now = System.currentTimeMillis();
         Invoker<T> selectedInvoker = null;
         WeightedRoundRobin selectedWRR = null;
+
+        // 遍历所有的提供者，计算总权重和权重最大的提供者
         for (Invoker<T> invoker : invokers) {
             String identifyString = invoker.getUrl().toIdentityString();
             WeightedRoundRobin weightedRoundRobin = map.get(identifyString);
@@ -107,6 +123,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
                 weightedRoundRobin.setWeight(weight);
                 map.putIfAbsent(identifyString, weightedRoundRobin);
             }
+            // 权重变化
             if (weight != weightedRoundRobin.getWeight()) {
                 //weight changed
                 weightedRoundRobin.setWeight(weight);
@@ -120,12 +137,16 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
             }
             totalWeight += weight;
         }
+
+        // 更新 Map
         if (!updateLock.get() && invokers.size() != map.size()) {
             if (updateLock.compareAndSet(false, true)) {
                 try {
                     // copy -> modify -> update reference
+                    // 拷贝新值
                     ConcurrentMap<String, WeightedRoundRobin> newMap = new ConcurrentHashMap<String, WeightedRoundRobin>();
                     newMap.putAll(map);
+                    // 更新Map，移除过期的
                     Iterator<Entry<String, WeightedRoundRobin>> it = newMap.entrySet().iterator();
                     while (it.hasNext()) {
                         Entry<String, WeightedRoundRobin> item = it.next();
@@ -133,13 +154,16 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
                             it.remove();
                         }
                     }
+                    // 更新
                     methodWeightMap.put(key, newMap);
                 } finally {
                     updateLock.set(false);
                 }
             }
         }
+        // 返回选择的提供者的Invoker对象
         if (selectedInvoker != null) {
+            // 把当前提供者对应的方法的权重设置为当前值减去总权重，以便实现轮询对外提供服务
             selectedWRR.sel(totalWeight);
             return selectedInvoker;
         }

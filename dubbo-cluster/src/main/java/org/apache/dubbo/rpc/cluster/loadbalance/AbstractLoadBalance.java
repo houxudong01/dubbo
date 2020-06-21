@@ -39,7 +39,9 @@ public abstract class AbstractLoadBalance implements LoadBalance {
      * @return weight which takes warmup into account
      */
     static int calculateWarmupWeight(int uptime, int warmup, int weight) {
+        // 计算权重
         int ww = (int) ((float) uptime / ((float) warmup / (float) weight));
+        // 权重范围为 [0, weight] 之间
         return ww < 1 ? 1 : (ww > weight ? weight : ww);
     }
 
@@ -48,6 +50,7 @@ public abstract class AbstractLoadBalance implements LoadBalance {
         if (CollectionUtils.isEmpty(invokers)) {
             return null;
         }
+        // 只有一个 Invoker 时直接返回
         if (invokers.size() == 1) {
             return invokers.get(0);
         }
@@ -66,12 +69,16 @@ public abstract class AbstractLoadBalance implements LoadBalance {
      * @return weight
      */
     protected int getWeight(Invoker<?> invoker, Invocation invocation) {
+        // 获得 weight 配置，即服务权重。如果没有配置则默认为 100
         int weight = invoker.getUrl().getMethodParameter(invocation.getMethodName(), Constants.WEIGHT_KEY, Constants.DEFAULT_WEIGHT);
         if (weight > 0) {
             long timestamp = invoker.getUrl().getParameter(Constants.REMOTE_TIMESTAMP_KEY, 0L);
             if (timestamp > 0L) {
+                // 获取到启动总时长
                 int uptime = (int) (System.currentTimeMillis() - timestamp);
+                // 获得预热需要总时长。默认为 10 * 60 * 1000 = 10 分钟
                 int warmup = invoker.getUrl().getParameter(Constants.WARMUP_KEY, Constants.DEFAULT_WARMUP);
+                // 处于预热中，计算当前的权重
                 if (uptime > 0 && uptime < warmup) {
                     weight = calculateWarmupWeight(uptime, warmup, weight);
                 }
