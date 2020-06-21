@@ -423,7 +423,7 @@ public class RegistryProtocol implements Protocol {
         }
         // 建立路由规则
         directory.buildRouterChain(subscribeUrl);
-        // 订阅服务提供者地址
+        // 订阅 服务提供者地址 + 路由规则 + 配置规则
         directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,
                 PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));
 
