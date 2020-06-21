@@ -29,11 +29,12 @@ import org.apache.dubbo.rpc.cluster.LoadBalance;
 import java.util.List;
 
 /**
+ * 失败安全，出现异常时，直接忽略。通常用于写入审计日志等操作。
+ * <p>
  * When invoke fails, log the error message and ignore this error by returning an empty RpcResult.
  * Usually used to write audit logs and other operations
  *
  * <a href="http://en.wikipedia.org/wiki/Fail-safe">Fail-safe</a>
- *
  */
 public class FailsafeClusterInvoker<T> extends AbstractClusterInvoker<T> {
     private static final Logger logger = LoggerFactory.getLogger(FailsafeClusterInvoker.class);
@@ -45,10 +46,14 @@ public class FailsafeClusterInvoker<T> extends AbstractClusterInvoker<T> {
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         try {
+            // 检查 invokers 即可用Invoker集合是否为空，如果为空，那么抛出异常
             checkInvokers(invokers, invocation);
+            // 根据负载均衡机制从 invokers 中选择一个Invoker
             Invoker<T> invoker = select(loadbalance, invocation, invokers, null);
+            // rpc 调用
             return invoker.invoke(invocation);
         } catch (Throwable e) {
+            // 如果发生异常则记录日志，不影响程序执行
             logger.error("Failsafe ignore exception: " + e.getMessage(), e);
             return new RpcResult(); // ignore
         }

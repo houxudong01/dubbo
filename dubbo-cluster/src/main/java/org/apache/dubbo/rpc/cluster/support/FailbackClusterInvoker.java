@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * 失败自动恢复，后台记录失败请求，定时重发。通常用于消息通知操作。
+ * <p>
  * When fails, record failure requests and schedule for retry on a regular interval.
  * Especially useful for services of notification.
  *
@@ -52,6 +54,9 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
     private final int failbackTasks;
 
+    /**
+     * 失败重试定时任务
+     */
     private volatile Timer failTimer;
 
     public FailbackClusterInvoker(Directory<T> directory) {
@@ -92,12 +97,16 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
     protected Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         Invoker<T> invoker = null;
         try {
+            // 检查 invokers 即可用Invoker集合是否为空，如果为空，那么抛出异常
             checkInvokers(invokers, invocation);
+            // 根据负载均衡机制从 invokers 中选择一个Invoker
             invoker = select(loadbalance, invocation, invokers, null);
+            // RPC 调用得到 Result
             return invoker.invoke(invocation);
         } catch (Throwable e) {
             logger.error("Failback to invoke method " + invocation.getMethodName() + ", wait for retry in background. Ignored exception: "
                     + e.getMessage() + ", ", e);
+            // 添加到失败任务，定时重试
             addFailed(loadbalance, invocation, invokers, invoker);
             return new RpcResult(); // ignore
         }
@@ -129,7 +138,7 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
             this.invokers = invokers;
             this.retries = retries;
             this.tick = tick;
-            this.lastInvoker=lastInvoker;
+            this.lastInvoker = lastInvoker;
         }
 
         @Override

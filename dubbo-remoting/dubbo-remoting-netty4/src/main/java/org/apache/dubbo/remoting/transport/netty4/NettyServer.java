@@ -56,6 +56,9 @@ public class NettyServer extends AbstractServer implements Server {
 
     private static final Logger logger = LoggerFactory.getLogger(NettyServer.class);
 
+    /**
+     * 连接到服务器的客户端通道集合
+     */
     private Map<String, Channel> channels; // <ip:port, channel>
 
     private ServerBootstrap bootstrap;
@@ -71,34 +74,45 @@ public class NettyServer extends AbstractServer implements Server {
 
     @Override
     protected void doOpen() throws Throwable {
+        // 实例化 ServerBootstrap
         bootstrap = new ServerBootstrap();
 
+        // 创建线程组
         bossGroup = new NioEventLoopGroup(1, new DefaultThreadFactory("NettyServerBoss", true));
         workerGroup = new NioEventLoopGroup(getUrl().getPositiveParameter(Constants.IO_THREADS_KEY, Constants.DEFAULT_IO_THREADS),
                 new DefaultThreadFactory("NettyServerWorker", true));
 
+        // 创建NettyServerHandler 对象
         final NettyServerHandler nettyServerHandler = new NettyServerHandler(getUrl(), this);
+        // 设置 channels属性
         channels = nettyServerHandler.getChannels();
 
-        bootstrap.group(bossGroup, workerGroup)
+        bootstrap
+                // 设置线程组
+                .group(bossGroup, workerGroup)
+                // 设置 Channel 类型
                 .channel(NioServerSocketChannel.class)
+                // 设置可选项
                 .childOption(ChannelOption.TCP_NODELAY, Boolean.TRUE)
                 .childOption(ChannelOption.SO_REUSEADDR, Boolean.TRUE)
                 .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
+                // 设置责任链路
                 .childHandler(new ChannelInitializer<NioSocketChannel>() {
                     @Override
                     protected void initChannel(NioSocketChannel ch) throws Exception {
                         // FIXME: should we use getTimeout()?
                         int idleTimeout = UrlUtils.getIdleTimeout(getUrl());
+                        // 创建 NettyCodeAdapter
                         NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyServer.this);
                         ch.pipeline()//.addLast("logging",new LoggingHandler(LogLevel.INFO))//for debug
-                                .addLast("decoder", adapter.getDecoder())
-                                .addLast("encoder", adapter.getEncoder())
+                                .addLast("decoder", adapter.getDecoder()) //设置解码器
+                                .addLast("encoder", adapter.getEncoder()) // 设置编码器
                                 .addLast("server-idle-handler", new IdleStateHandler(0, 0, idleTimeout, MILLISECONDS))
-                                .addLast("handler", nettyServerHandler);
+                                .addLast("handler", nettyServerHandler); // 设置处理器
                     }
                 });
         // bind
+        // 服务器绑定端口监听
         ChannelFuture channelFuture = bootstrap.bind(getBindAddress());
         channelFuture.syncUninterruptibly();
         channel = channelFuture.channel();
@@ -110,12 +124,14 @@ public class NettyServer extends AbstractServer implements Server {
         try {
             if (channel != null) {
                 // unbind.
+                // 关闭服务器通道
                 channel.close();
             }
         } catch (Throwable e) {
             logger.warn(e.getMessage(), e);
         }
         try {
+            // 关闭连接到服务器的所有客户端通道
             Collection<org.apache.dubbo.remoting.Channel> channels = getChannels();
             if (channels != null && channels.size() > 0) {
                 for (org.apache.dubbo.remoting.Channel channel : channels) {
@@ -130,6 +146,7 @@ public class NettyServer extends AbstractServer implements Server {
             logger.warn(e.getMessage(), e);
         }
         try {
+            // 优雅关闭线程组
             if (bootstrap != null) {
                 bossGroup.shutdownGracefully();
                 workerGroup.shutdownGracefully();
@@ -138,6 +155,7 @@ public class NettyServer extends AbstractServer implements Server {
             logger.warn(e.getMessage(), e);
         }
         try {
+            // 清空连接到服务器的客户端通道
             if (channels != null) {
                 channels.clear();
             }

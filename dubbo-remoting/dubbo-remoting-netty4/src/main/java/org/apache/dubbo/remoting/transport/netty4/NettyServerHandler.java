@@ -39,6 +39,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NettyServerHandler extends ChannelDuplexHandler {
     private static final Logger logger = LoggerFactory.getLogger(NettyServerHandler.class);
 
+    /**
+     * Dubbo Channel 集合
+     */
     private final Map<String, Channel> channels = new ConcurrentHashMap<String, Channel>(); // <ip:port, channel>
 
     private final URL url;
@@ -62,13 +65,17 @@ public class NettyServerHandler extends ChannelDuplexHandler {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        // 创建 NettyChannel 对象
         NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
         try {
+            // 添加到 channels 集合中
             if (channel != null) {
                 channels.put(NetUtils.toAddressString((InetSocketAddress) ctx.channel().remoteAddress()), channel);
             }
+            // 提交给 handler 处理连接事件
             handler.connected(channel);
         } finally {
+            // 移除 NettyChannel 对象
             NettyChannel.removeChannelIfDisconnected(ctx.channel());
         }
     }

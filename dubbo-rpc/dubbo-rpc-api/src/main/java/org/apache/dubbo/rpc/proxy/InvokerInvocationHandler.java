@@ -54,6 +54,7 @@ public class InvokerInvocationHandler implements InvocationHandler {
             return invoker.equals(args[0]);
         }
 
+        // 集群容错 invoker
         return invoker.invoke(createInvocation(method, args)).recreate();
     }
 

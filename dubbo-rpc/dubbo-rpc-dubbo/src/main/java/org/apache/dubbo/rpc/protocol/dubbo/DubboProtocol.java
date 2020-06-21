@@ -80,6 +80,9 @@ public class DubboProtocol extends AbstractProtocol {
      */
     private final Map<String, List<ReferenceCountExchangeClient>> referenceClientMap = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Object> locks = new ConcurrentHashMap<>();
+    /**
+     * 已经初始化 SerializationOptimizer 实现类名的集合
+     */
     private final Set<String> optimizers = new ConcurrentHashSet<>();
     /**
      * consumer side export a stub service for dispatching event
@@ -378,7 +381,14 @@ public class DubboProtocol extends AbstractProtocol {
         return server;
     }
 
+    /**
+     * 初始化序列化优化器
+     *
+     * @param url
+     * @throws RpcException
+     */
     private void optimizeSerialization(URL url) throws RpcException {
+        // 获取 optimizer 配置项
         String className = url.getParameter(Constants.OPTIMIZER_KEY, "");
         if (StringUtils.isEmpty(className) || optimizers.contains(className)) {
             return;
@@ -387,21 +397,25 @@ public class DubboProtocol extends AbstractProtocol {
         logger.info("Optimizing the serialization process for Kryo, FST, etc...");
 
         try {
+            // 加载 SerializationOptimizer 的实现类
             Class clazz = Thread.currentThread().getContextClassLoader().loadClass(className);
             if (!SerializationOptimizer.class.isAssignableFrom(clazz)) {
                 throw new RpcException("The serialization optimizer " + className + " isn't an instance of " + SerializationOptimizer.class.getName());
             }
 
+            // 创建 SerializationOptimizer 的实现类对象
             SerializationOptimizer optimizer = (SerializationOptimizer) clazz.newInstance();
 
             if (optimizer.getSerializableClasses() == null) {
                 return;
             }
 
+            // 注册到 SerializableClassRegistry
             for (Class c : optimizer.getSerializableClasses()) {
                 SerializableClassRegistry.registerClass(c);
             }
 
+            // 添加到 optimizers
             optimizers.add(className);
 
         } catch (ClassNotFoundException e) {

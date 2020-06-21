@@ -70,6 +70,7 @@ public class NettyClient extends AbstractClient {
                 //.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, getTimeout())
                 .channel(NioSocketChannel.class);
 
+        // 设置连接超时时间
         if (getConnectTimeout() < 3000) {
             bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 3000);
         } else {
@@ -97,12 +98,15 @@ public class NettyClient extends AbstractClient {
         // 发起连接
         ChannelFuture future = bootstrap.connect(getConnectAddress());
         try {
+            // 等待连接成功或超时
             boolean ret = future.awaitUninterruptibly(getConnectTimeout(), MILLISECONDS);
 
+            // 连接成功
             if (ret && future.isSuccess()) {
                 Channel newChannel = future.channel();
                 try {
                     // Close old channel
+                    // 关闭老的连接
                     Channel oldChannel = NettyClient.this.channel; // copy reference
                     if (oldChannel != null) {
                         try {
@@ -115,6 +119,7 @@ public class NettyClient extends AbstractClient {
                         }
                     }
                 } finally {
+                    // 如果 NettyClient 被关闭，关闭连接
                     if (NettyClient.this.isClosed()) {
                         try {
                             if (logger.isInfoEnabled()) {
@@ -125,7 +130,9 @@ public class NettyClient extends AbstractClient {
                             NettyClient.this.channel = null;
                             NettyChannel.removeChannelIfDisconnected(newChannel);
                         }
-                    } else {
+                    }
+                    // 否则设置新连接
+                    else {
                         NettyClient.this.channel = newChannel;
                     }
                 }

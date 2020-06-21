@@ -33,7 +33,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Main. (API, Static, ThreadSafe)
- *
+ * <p>
  * This class is entry point loading containers.
  */
 public class Main {
@@ -52,11 +52,13 @@ public class Main {
 
     public static void main(String[] args) {
         try {
+            // 若 main 函数参数传入为空，从配置中加载。
             if (ArrayUtils.isEmpty(args)) {
                 String config = ConfigUtils.getProperty(CONTAINER_KEY, loader.getDefaultExtensionName());
                 args = Constants.COMMA_SPLIT_PATTERN.split(config);
             }
 
+            // 加载容器数组
             final List<Container> containers = new ArrayList<Container>();
             for (int i = 0; i < args.length; i++) {
                 containers.add(loader.getExtension(args[i]));
