@@ -41,10 +41,26 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 final public class MockInvoker<T> implements Invoker<T> {
+    /**
+     * ProxyFactory$Adaptive 对象
+     */
     private final static ProxyFactory proxyFactory = ExtensionLoader.getExtensionLoader(ProxyFactory.class).getAdaptiveExtension();
+    /**
+     * mock 与 Invoker 对象的映射缓存
+     *
+     * @see #getInvoker(String)
+     */
     private final static Map<String, Invoker<?>> mocks = new ConcurrentHashMap<String, Invoker<?>>();
+    /**
+     * mock 与 Throwable 对象的映射缓存
+     *
+     * @see #getThrowable(String)
+     */
     private final static Map<String, Throwable> throwables = new ConcurrentHashMap<String, Throwable>();
 
+    /**
+     * URL 对象
+     */
     private final URL url;
 
     public MockInvoker(URL url) {
@@ -55,30 +71,57 @@ final public class MockInvoker<T> implements Invoker<T> {
         return parseMockValue(mock, null);
     }
 
+    /**
+     * 解析值，并转换成对应的返回类型
+     *
+     * @param mock
+     * @param returnTypes
+     * @return
+     * @throws Exception
+     */
     public static Object parseMockValue(String mock, Type[] returnTypes) throws Exception {
+        // 解析值（不考虑返回类型）
         Object value = null;
+        // 未赋值的对象，即 new XXX() 对象
         if ("empty".equals(mock)) {
             value = ReflectUtils.getEmptyObject(returnTypes != null && returnTypes.length > 0 ? (Class<?>) returnTypes[0] : null);
-        } else if ("null".equals(mock)) {
+        }
+        // null
+        else if ("null".equals(mock)) {
             value = null;
-        } else if ("true".equals(mock)) {
+        }
+        // true
+        else if ("true".equals(mock)) {
             value = true;
-        } else if ("false".equals(mock)) {
+        }
+        // false
+        else if ("false".equals(mock)) {
             value = false;
-        } else if (mock.length() >= 2 && (mock.startsWith("\"") && mock.endsWith("\"")
+        }
+        // 使用 '' 或 "" 的字符串，截取掉头尾
+        else if (mock.length() >= 2 && (mock.startsWith("\"") && mock.endsWith("\"")
                 || mock.startsWith("\'") && mock.endsWith("\'"))) {
             value = mock.subSequence(1, mock.length() - 1);
-        } else if (returnTypes != null && returnTypes.length > 0 && returnTypes[0] == String.class) {
+        }
+        // 字符串
+        else if (returnTypes != null && returnTypes.length > 0 && returnTypes[0] == String.class) {
             value = mock;
-        } else if (StringUtils.isNumeric(mock, false)) {
+        }
+        // 数字
+        else if (StringUtils.isNumeric(mock, false)) {
             value = JSON.parse(mock);
-        } else if (mock.startsWith("{")) {
+        }
+        // Map
+        else if (mock.startsWith("{")) {
             value = JSON.parseObject(mock, Map.class);
-        } else if (mock.startsWith("[")) {
+        }
+        // List
+        else if (mock.startsWith("[")) {
             value = JSON.parseObject(mock, List.class);
         } else {
             value = mock;
         }
+        // 转换成对应的返回类型
         if (ArrayUtils.isNotEmpty(returnTypes)) {
             value = PojoUtils.realize(value, (Class<?>) returnTypes[0], returnTypes.length > 1 ? returnTypes[1] : null);
         }
@@ -87,7 +130,7 @@ final public class MockInvoker<T> implements Invoker<T> {
 
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
-        // mock类型
+        // 获得 `"mock"` 配置项，方法级 > 类级
         String mock = getUrl().getParameter(invocation.getMethodName() + "." + Constants.MOCK_KEY);
         if (invocation instanceof RpcInvocation) {
             ((RpcInvocation) invocation).setInvoker(this);
@@ -131,6 +174,7 @@ final public class MockInvoker<T> implements Invoker<T> {
     }
 
     public static Throwable getThrowable(String throwstr) {
+        // 从缓存中，获得 Throwable 对象
         Throwable throwable = throwables.get(throwstr);
         if (throwable != null) {
             return throwable;
@@ -179,8 +223,7 @@ final public class MockInvoker<T> implements Invoker<T> {
         // 反射加载字节码创建Class对象
         Class<?> mockClass = ReflectUtils.forName(mockService);
         if (!serviceType.isAssignableFrom(mockClass)) {
-            throw new IllegalStateException("The mock class " + mockClass.getName() +
-                    " not implement interface " + serviceType.getName());
+            throw new IllegalStateException("The mock class " + mockClass.getName() + " not implement interface " + serviceType.getName());
         }
 
         try {

@@ -540,6 +540,7 @@ public class RegistryProtocol implements Protocol {
         public synchronized void notify(List<URL> urls) {
             logger.debug("original override urls: " + urls);
 
+            // 获得匹配的规则配置 URL 集合
             List<URL> matchedUrls = getMatchedUrls(urls, subscribeUrl.addParameter(CATEGORY_KEY,
                     CONFIGURATORS_CATEGORY));
             logger.debug("subscribe url: " + subscribeUrl + ", override urls: " + matchedUrls);
@@ -549,6 +550,7 @@ public class RegistryProtocol implements Protocol {
                 return;
             }
 
+            // 将配置规则 URL 集合，**转换**成对应的 Configurator 集合
             this.configurators = Configurator.toConfigurators(classifyUrls(matchedUrls, UrlUtils::isConfigurator))
                     .orElse(configurators);
 

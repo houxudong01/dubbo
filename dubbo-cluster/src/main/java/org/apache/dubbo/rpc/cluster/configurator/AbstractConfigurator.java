@@ -59,9 +59,13 @@ public abstract class AbstractConfigurator implements Configurator {
         if (StringUtils.isNotEmpty(apiVersion)) {
             String currentSide = url.getParameter(Constants.SIDE_KEY);
             String configuratorSide = configuratorUrl.getParameter(Constants.SIDE_KEY);
+
+            // 匹配到消费者
             if (currentSide.equals(configuratorSide) && Constants.CONSUMER.equals(configuratorSide) && 0 == configuratorUrl.getPort()) {
                 url = configureIfMatch(NetUtils.getLocalHost(), url);
-            } else if (currentSide.equals(configuratorSide) && Constants.PROVIDER.equals(configuratorSide) && url.getPort() == configuratorUrl.getPort()) {
+            }
+            // 匹配到服务提供者
+            else if (currentSide.equals(configuratorSide) && Constants.PROVIDER.equals(configuratorSide) && url.getPort() == configuratorUrl.getPort()) {
                 url = configureIfMatch(url.getHost(), url);
             }
         }
