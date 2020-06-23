@@ -51,9 +51,11 @@ public class ConsumerContextFilter implements Filter {
         try {
             // TODO should we clear server context?
             RpcContext.removeServerContext();
+            // AbstractClusterInvoker#invoke()里面会将附加属性设置到 RpcInvocation 中
             return invoker.invoke(invocation);
         } finally {
             // TODO removeContext? but we need to save future for RpcContext.getFuture() API. If clear attachments here, attachments will not available when postProcessResult is invoked.
+            // 请求发出去后，会清除当前与调用线程关联的线程变量里面的附加属性
             RpcContext.getContext().clearAttachments();
         }
     }
