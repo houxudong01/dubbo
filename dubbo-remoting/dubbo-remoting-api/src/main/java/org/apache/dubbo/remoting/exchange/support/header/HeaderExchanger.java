@@ -27,8 +27,6 @@ import org.apache.dubbo.remoting.transport.DecodeHandler;
 
 /**
  * DefaultMessenger
- *
- *
  */
 public class HeaderExchanger implements Exchanger {
 
@@ -36,6 +34,11 @@ public class HeaderExchanger implements Exchanger {
 
     @Override
     public ExchangeClient connect(URL url, ExchangeHandler handler) throws RemotingException {
+        // 这里包含了多个调用，分别如下：
+        // 1. 创建 HeaderExchangeHandler 对象
+        // 2. 创建 DecodeHandler 对象
+        // 3. 通过 Transporters 构建 Client 实例
+        // 4. 创建 HeaderExchangeClient 对象
         return new HeaderExchangeClient(Transporters.connect(url, new DecodeHandler(new HeaderExchangeHandler(handler))), true);
     }
 
@@ -44,6 +47,7 @@ public class HeaderExchanger implements Exchanger {
         // 这里的bind()方法主要是创建了三个Handler，并且最后一个Handler将传入的ExchangeHandler包裹起来了。
         // 很明显这里使用的是责任链模式，这几个handler通过统一的构造函数将下一个handler的实例注入到当前handler中。
         // 其实我们也就能够理解，最终通过netty进行的调用过程就是基于这些责任链的。
+        // 重点关注 Transporters.bind()方法
         return new HeaderExchangeServer(Transporters.bind(url, new DecodeHandler(new HeaderExchangeHandler(handler))));
     }
 

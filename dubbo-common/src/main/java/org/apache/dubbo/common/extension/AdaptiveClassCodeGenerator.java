@@ -85,13 +85,17 @@ public class AdaptiveClassCodeGenerator {
      */
     public String generate() {
         // no need to generate adaptive class since there's no adaptive method found.
+        // 检查该扩展点所有的方法上是否存在 @Adaptive 注解，如果都不存在则抛异常
         if (!hasAdaptiveMethod()) {
             throw new IllegalStateException("No adaptive method exist on extension " + type.getName() + ", refuse to create the adaptive class!");
         }
 
         StringBuilder code = new StringBuilder();
+        // 生成 package 代码
         code.append(generatePackageInfo());
+        // 生成 Import 代码
         code.append(generateImports());
+        // 生成 方法声明 代码
         code.append(generateClassDeclaration());
         
         Method[] methods = type.getMethods();
