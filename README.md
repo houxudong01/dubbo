@@ -12,59 +12,25 @@
 
 Apache Dubbo是一个基于Java的高性能开源RPC框架。请访问官方网站以获取快速入门和文档，以及访问Wiki以获得新闻，常见问题解答和发行说明。
 
-现在，我们正在收集dubbo用户信息，以帮助我们更好地改善Dubbo。请为您提供有关问题＃1012的帮助：想要：谁正在使用dubbo，谢谢:)
+
 ## 架构
 
 ![Architecture](http://dubbo.apache.org/img/architecture.png)
 
 ## 源码导读
 相关代码中已添加中文注释：
-Dubbo SPI机制：
-[org.apache.dubbo.common.extension](https://github.com/houxudong01/dubbo/blob/feature/2.7.1/dubbo-common/src/main/java/org/apache/dubbo/common/extension/ExtensionLoader.java)
-服务暴露：
+
+*  Dubbo SPI机制：
+[org.apache.dubbo.common.extension](https://github.com/houxudong01/dubbo/blob/feature/2.7.1/dubbo-common/src/main/java/org/apache/dubbo/common/extension/ExtensionLoader.java)  
+
+* 服务暴露：
 [org.apache.dubbo.config.spring.ServiceBean#onApplicationEvent()](https://github.com/houxudong01/dubbo/blob/feature/2.7.1/dubbo-config/dubbo-config-spring/src/main/java/org/apache/dubbo/config/spring/ServiceBean.java#L121)
-服务引入: [org.apache.dubbo.config.spring.ServiceBean#afterPropertiesSet()](https://github.com/houxudong01/dubbo/blob/feature/2.7.1/dubbo-config/dubbo-config-spring/src/main/java/org/apache/dubbo/config/spring/ReferenceBean.java#L220)
-服务调用过程:
-`
-/**
-         *  sayHello(String) rpc调用链路：
-         * 1.消费方：
-         * proxy0#sayHello(String)
-         *   —> InvokerInvocationHandler#invoke(Object, Method, Object[])
-         *     —> MockClusterInvoker#invoke(Invocation)
-         *       —> AbstractClusterInvoker#invoke(Invocation)
-         *         —> FailoverClusterInvoker#doInvoke(Invocation, List<Invoker<T>>, LoadBalance)
-         *           —> Filter#invoke(Invoker, Invocation)  // 包含多个 Filter 调用
-         *             —> ListenerInvokerWrapper#invoke(Invocation)
-         *               —> AbstractInvoker#invoke(Invocation)
-         *                 —> DubboInvoker#doInvoke(Invocation)
-         *                   —> ReferenceCountExchangeClient#request(Object, int)
-         *                     —> HeaderExchangeClient#request(Object, int)
-         *                       —> HeaderExchangeChannel#request(Object, int)
-         *                         —> AbstractPeer#send(Object)
-         *                           —> AbstractClient#send(Object, boolean)
-         *                             —> NettyChannel#send(Object, boolean)
-         *                               —> NioClientSocketChannel#write(Object)
-         * 2.服务提供方：
-         * NettyHandler#messageReceived(ChannelHandlerContext, MessageEvent)
-         *   —> AbstractPeer#received(Channel, Object)
-         *     —> MultiMessageHandler#received(Channel, Object)
-         *       —> HeartbeatHandler#received(Channel, Object)
-         *         —> AllChannelHandler#received(Channel, Object)
-         *           —> ExecutorService#execute(Runnable)    // 由线程池执行后续的调用逻辑
-         *             -> ChannelEventRunnable#run()
-         *               —> DecodeHandler#received(Channel, Object)
-         *                 —> HeaderExchangeHandler#received(Channel, Object)
-         *                   —> HeaderExchangeHandler#handleRequest(ExchangeChannel, Request)
-         *                     —> DubboProtocol.requestHandler#reply(ExchangeChannel, Object)
-         *                       —> Filter#invoke(Invoker, Invocation)
-         *                         —> AbstractProxyInvoker#invoke(Invocation)
-         *                           —> Wrapper0#invokeMethod(Object, String, Class[], Object[])
-         *                             —> DemoServiceImpl#sayHello(String)
-         */
-`
-## 文档
-[](http://dubbo.apache.org/zh-cn/docs/user/quick-start.html)
+* 服务引入: [org.apache.dubbo.config.spring.ServiceBean#afterPropertiesSet()](https://github.com/houxudong01/dubbo/blob/feature/2.7.1/dubbo-config/dubbo-config-spring/src/main/java/org/apache/dubbo/config/spring/ReferenceBean.java#L220)
+*  服务调用过程:
+[org.apache.dubbo.demo.consumer.Application](https://github.com/houxudong01/dubbo/blob/feature/2.7.1/dubbo-demo/dubbo-demo-annotation/dubbo-demo-annotation-consumer/src/main/java/org/apache/dubbo/demo/consumer/Application.java#L43)
+
+## 官方文档
+[文档](http://dubbo.apache.org/zh-cn/docs/user/quick-start.html)
 
 ## 特性
 
