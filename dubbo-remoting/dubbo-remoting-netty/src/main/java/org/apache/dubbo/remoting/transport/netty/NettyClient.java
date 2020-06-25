@@ -53,6 +53,7 @@ public class NettyClient extends AbstractClient {
             Constants.DEFAULT_IO_THREADS);
     private ClientBootstrap bootstrap;
 
+    // 这里的 Channel 全限定名称为 org.jboss.netty.channel.Channel
     private volatile Channel channel; // volatile, please copy reference to use
 
     public NettyClient(final URL url, final ChannelHandler handler) throws RemotingException {
@@ -160,6 +161,7 @@ public class NettyClient extends AbstractClient {
         if (c == null || !c.isConnected()) {
             return null;
         }
+        // 获取一个 NettyChannel 类型对象
         return NettyChannel.getOrAddChannel(c, getUrl(), this);
     }
 

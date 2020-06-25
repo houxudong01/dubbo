@@ -51,10 +51,14 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
         int identityHashCode = System.identityHashCode(invokers);
         // 获得 ConsistentHashSelector 对象。若为空，或者定义哈希值变更（说明 invokers 集合发生变化），进行创建新的 ConsistentHashSelector 对象
         ConsistentHashSelector<T> selector = (ConsistentHashSelector<T>) selectors.get(key);
+        // 如果 invokers 是一个新的 List 对象，意味着服务提供者数量发生了变化，可能新增也可能减少了。
+        // 此时 selector.identityHashCode != identityHashCode 条件成立
         if (selector == null || selector.identityHashCode != identityHashCode) {
+            // 创建新的 ConsistentHashSelector
             selectors.put(key, new ConsistentHashSelector<T>(invokers, methodName, identityHashCode));
             selector = (ConsistentHashSelector<T>) selectors.get(key);
         }
+        // 调用 ConsistentHashSelector 的 select 方法选择 Invoker
         return selector.select(invocation);
     }
 
@@ -66,7 +70,7 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
     private static final class ConsistentHashSelector<T> {
 
         /**
-         * 虚拟节点与Invoker的映射关系
+         * 使用 TreeMap 存储 虚拟节点与Invoker的映射关系
          */
         private final TreeMap<Long, Invoker<T>> virtualInvokers;
 
@@ -91,6 +95,7 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
             URL url = invokers.get(0).getUrl();
             // 获取设置的虚拟节点的个数，默认是160个
             this.replicaNumber = url.getMethodParameter(methodName, "hash.nodes", 160);
+            // 获取参与 hash 计算的参数下标值，默认对第一个参数进行 hash 运算
             String[] index = Constants.COMMA_SPLIT_PATTERN.split(url.getMethodParameter(methodName, "hash.arguments", "0"));
             argumentIndex = new int[index.length];
             for (int i = 0; i < index.length; i++) {
@@ -101,12 +106,18 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
                 String address = invoker.getUrl().getAddress();
                 // 每 4 个节点虚拟化为一组
                 for (int i = 0; i < replicaNumber / 4; i++) {
-                    // 这组虚拟结点得到惟一名称
+                    // 对 address + i 进行 md5 运算，得到一个长度为16的字节数组
                     byte[] digest = md5(address + i);
+                    // 对 digest 部分字节进行4次 hash 运算，得到四个不同的 long 型正整数
                     // Md5是一个16字节长度的数组，将16字节的数组每四个字节一组，分别对应一个虚拟结点，这就是为什么上面把虚拟结点四个划分一组的原因
                     for (int h = 0; h < 4; h++) {
                         // 对于每四个字节，组成一个long值数值，做为这个虚拟节点的在环中的惟一key
+                        // h = 0 时，取 digest 中下标为 0 ~ 3 的4个字节进行位运算
+                        // h = 1 时，取 digest 中下标为 4 ~ 7 的4个字节进行位运算
+                        // h = 2, h = 3 时过程同上
                         long m = hash(digest, h);
+                        // 将 hash 到 invoker 的映射关系存储到 virtualInvokers 中，
+                        // virtualInvokers 需要提供高效的查询操作，因此选用 TreeMap 作为存储结构
                         virtualInvokers.put(m, invoker);
                     }
                 }
@@ -133,7 +144,7 @@ public class ConsistentHashLoadBalance extends AbstractLoadBalance {
         }
 
         private Invoker<T> selectForKey(long hash) {
-            // 得到大于当前 key 的那个子 Map ，然后从中取出第一个 key ，就是大于且离它最近的那个 key
+            // 到 TreeMap 中查找第一个节点值大于或等于当前 hash 的 Invoker
             Map.Entry<Long, Invoker<T>> entry = virtualInvokers.ceilingEntry(hash);
             // 如果不存在，则取 virtualInvokers 第一个
             if (entry == null) {

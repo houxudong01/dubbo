@@ -44,25 +44,33 @@ public class RandomLoadBalance extends AbstractLoadBalance {
         // The sum of weights
         int totalWeight = firstWeight;
 
-        // 计算总权重，并判断所有的 invoker 是否拥有均等的权重
+        // 计算总权重，并判断每个 invoker 的权重是否相等
         for (int i = 1; i < length; i++) {
             int weight = getWeight(invokers.get(i), invocation);
             // save for later use
             weights[i] = weight;
             // Sum
             totalWeight += weight;
+            // 检测当前服务提供者的权重与上一个服务提供者的权重是否相同，
+            // 不相同的话，则将 sameWeight 置为 false。
             if (sameWeight && weight != firstWeight) {
                 sameWeight = false;
             }
         }
 
-        // 如果每个 invoker 权重不均等
+        // 如果每个 invoker 权重不均等，获取随机数，并计算随机数落在哪个区间上
         if (totalWeight > 0 && !sameWeight) {
             // If (not every invoker has the same weight & at least one invoker's weight>0), select randomly based on totalWeight.
-            // 随机
+            // 获取随机数
             int offset = ThreadLocalRandom.current().nextInt(totalWeight);
             // Return a invoker based on the random value.
-            // 判断区间
+            // 计算随机数落在哪个区间上
+            // 循环让 offset 数减去服务提供者权重值，当 offset 小于0时，返回相应的 Invoker。
+            // 举例说明一下，我们有 servers = [A, B, C]，weights = [5, 3, 2]，offset = 7。
+            // 第一次循环，offset - 5 = 2 > 0，即 offset > 5，
+            // 表明其不会落在服务器 A 对应的区间上。
+            // 第二次循环，offset - 3 = (2 - 3) = -1 < 0，即 5 < offset < 8，
+            // 表明其会落在服务器 B 对应的区间上
             for (int i = 0; i < length; i++) {
                 offset -= weights[i];
                 if (offset < 0) {

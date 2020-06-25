@@ -83,13 +83,13 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     public Result invoke(Invocation invocation) throws RpcException {
         RpcContext rpcContext = RpcContext.getContext();
         try {
-            // 执行具体的服务调用
+            // 执行具体的服务调用，doInvoke 是一个抽象方法，这个需要由具体的 Invoker 实例实现。Invoker 实例是在运行时通过 JavassistProxyFactory 创建的
             Object obj = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
             // 返回结果
             if (RpcUtils.isReturnTypeFuture(invocation)) {
                 return new AsyncRpcResult((CompletableFuture<Object>) obj);
             } else if (rpcContext.isAsyncStarted()) { // ignore obj in case of RpcContext.startAsync()? always rely on user to write back.
-                return new AsyncRpcResult(((AsyncContextImpl)(rpcContext.getAsyncContext())).getInternalFuture());
+                return new AsyncRpcResult(((AsyncContextImpl) (rpcContext.getAsyncContext())).getInternalFuture());
             } else {
                 return new RpcResult(obj);
             }

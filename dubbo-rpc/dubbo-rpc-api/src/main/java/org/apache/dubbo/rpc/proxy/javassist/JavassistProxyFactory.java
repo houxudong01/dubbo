@@ -39,7 +39,7 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
     @Override
     public <T> Invoker<T> getInvoker(T proxy, Class<T> type, URL url) {
         // TODO Wrapper cannot handle this scenario correctly: the classname contains '$'
-        // 创建Wrapper对象，以便减少反射调用
+        // 创建Wrapper对象，以便减少反射调用，生成的Wrapper类可以参考下方的额 WrapperO类=====
         final Wrapper wrapper = Wrapper.getWrapper(proxy.getClass().getName().indexOf('$') < 0 ? proxy.getClass() : type);
         // 创建匿名Invoker类对象,并实现doInvoke方法
         return new AbstractProxyInvoker<T>(proxy, type, url) {
@@ -47,10 +47,43 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
             protected Object doInvoke(T proxy, String methodName,
                                       Class<?>[] parameterTypes,
                                       Object[] arguments) throws Throwable {
-                // 调用Wrapper的invokeMethod方法,invokeMethod最终会调用目标方法
+                // 调用Wrapper代理类的invokeMethod方法,invokeMethod最终会调用目标方法
                 return wrapper.invokeMethod(proxy, methodName, parameterTypes, arguments);
             }
         };
     }
+
+    // ============================以下代码是在服务暴露过程中创建的代理类 Wrapper：============================================
+
+    // public class Wrapper0 extends Wrapper implements ClassGenerator.DC {
+    //    public static String[] pns;
+    //    public static Map pts;
+    //    public static String[] mns;
+    //    public static String[] dmns;
+    //    public static Class[] mts0;
+    //
+    //    // 省略其他方法
+    //
+    //    public Object invokeMethod(Object object, String string, Class[] arrclass, Object[] arrobject) throws InvocationTargetException {
+    //        DemoService demoService;
+    //        try {
+    //            // 类型转换
+    //            demoService = (DemoService)object;
+    //        }
+    //        catch (Throwable throwable) {
+    //            throw new IllegalArgumentException(throwable);
+    //        }
+    //        try {
+    //            // 根据方法名调用指定的方法
+    //            if ("sayHello".equals(string) && arrclass.length == 1) {
+    //                return demoService.sayHello((String)arrobject[0]);
+    //            }
+    //        }
+    //        catch (Throwable throwable) {
+    //            throw new InvocationTargetException(throwable);
+    //        }
+    //        throw new NoSuchMethodException(new StringBuffer().append("Not found method \"").append(string).append("\" in class com.alibaba.dubbo.demo.DemoService.").toString());
+    //    }
+    //}
 
 }

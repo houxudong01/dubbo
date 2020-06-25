@@ -80,7 +80,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         // 如果没有，或者值为默认的false，则说明没有设置降级策略
         if (value.length() == 0 || value.equalsIgnoreCase("false")) {
             //no mock
-            // 没有mock，正常发起远程调用
+            // 没有mock，正常发起远程调用，AbstractClusterInvoker.invoke()
             result = this.invoker.invoke(invocation);
         }
         // 如果设置了 force:return 降级策略
@@ -88,7 +88,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
             if (logger.isWarnEnabled()) {
                 logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + directory.getUrl());
             }
-            //force:direct mock
+            // force:direct mock
             // 直接调用doMockInvoke()方法，返回mock值，不发起远程调用
             result = doMockInvoke(invocation, null);
         }

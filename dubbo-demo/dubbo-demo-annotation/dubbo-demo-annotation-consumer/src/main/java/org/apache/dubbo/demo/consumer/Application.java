@@ -38,6 +38,43 @@ public class Application {
         DemoService service = context.getBean("demoServiceComponent", DemoServiceComponent.class);
         String hello = service.sayHello("world");
         System.out.println("result :" + hello);
+
+        /**
+         *  sayHello(String) rpc调用链路：
+         * 1.消费方：
+         * proxy0#sayHello(String)
+         *   —> InvokerInvocationHandler#invoke(Object, Method, Object[])
+         *     —> MockClusterInvoker#invoke(Invocation)
+         *       —> AbstractClusterInvoker#invoke(Invocation)
+         *         —> FailoverClusterInvoker#doInvoke(Invocation, List<Invoker<T>>, LoadBalance)
+         *           —> Filter#invoke(Invoker, Invocation)  // 包含多个 Filter 调用
+         *             —> ListenerInvokerWrapper#invoke(Invocation)
+         *               —> AbstractInvoker#invoke(Invocation)
+         *                 —> DubboInvoker#doInvoke(Invocation)
+         *                   —> ReferenceCountExchangeClient#request(Object, int)
+         *                     —> HeaderExchangeClient#request(Object, int)
+         *                       —> HeaderExchangeChannel#request(Object, int)
+         *                         —> AbstractPeer#send(Object)
+         *                           —> AbstractClient#send(Object, boolean)
+         *                             —> NettyChannel#send(Object, boolean)
+         *                               —> NioClientSocketChannel#write(Object)
+         * 2.服务提供方：
+         * NettyHandler#messageReceived(ChannelHandlerContext, MessageEvent)
+         *   —> AbstractPeer#received(Channel, Object)
+         *     —> MultiMessageHandler#received(Channel, Object)
+         *       —> HeartbeatHandler#received(Channel, Object)
+         *         —> AllChannelHandler#received(Channel, Object)
+         *           —> ExecutorService#execute(Runnable)    // 由线程池执行后续的调用逻辑
+         *             -> ChannelEventRunnable#run()
+         *               —> DecodeHandler#received(Channel, Object)
+         *                 —> HeaderExchangeHandler#received(Channel, Object)
+         *                   —> HeaderExchangeHandler#handleRequest(ExchangeChannel, Request)
+         *                     —> DubboProtocol.requestHandler#reply(ExchangeChannel, Object)
+         *                       —> Filter#invoke(Invoker, Invocation)
+         *                         —> AbstractProxyInvoker#invoke(Invocation)
+         *                           —> Wrapper0#invokeMethod(Object, String, Class[], Object[])
+         *                             —> DemoServiceImpl#sayHello(String)
+         */
     }
 
     @Configuration

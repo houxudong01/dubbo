@@ -104,6 +104,10 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
                         } catch (Throwable e) {
                             int value = count.incrementAndGet();
                             // 如果 RPC 调用结果都是异常，则添加异常到 `ref` 阻塞队列
+                            // 为什么要在value >= selected.size()的情况下，才将异常对象添加到阻塞队列中？
+                            // 这里来解答一下。原因是这样的，在并行调用多个服务提供者的情况下，只要有一个服务提供者能够成功返回结果，而其他全部失败。
+                            // 此时 ForkingClusterInvoker 仍应该返回成功的结果，而非抛出异常。在value >= selected.size()时将异常对象
+                            // 放入阻塞队列中，可以保证异常对象不会出现在正常结果的前面，这样可从阻塞队列中优先取出正常的结果
                             if (value >= selected.size()) {
                                 ref.offer(e);
                             }

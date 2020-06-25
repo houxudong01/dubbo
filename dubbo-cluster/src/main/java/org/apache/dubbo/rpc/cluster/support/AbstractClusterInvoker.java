@@ -135,7 +135,8 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             return null;
         }
 
-        // 获取到 sticky 配置
+        // 获取到 sticky 配置，sticky 表示粘滞连接。所谓粘滞连接是指让服务消费者尽可能的
+        // 调用同一个服务提供者，除非该提供者挂了再进行切换
         String methodName = invocation == null ? StringUtils.EMPTY : invocation.getMethodName();
         boolean sticky = invokers.get(0).getUrl()
                 .getMethodParameter(methodName, Constants.CLUSTER_STICKY_KEY, Constants.DEFAULT_CLUSTER_STICKY);
@@ -146,7 +147,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             stickyInvoker = null;
         }
         //ignore concurrency problem
-        // 若开启粘滞连接的特性，且 stickyInvoker 不存在于 selected 中，则返回 stickyInvoker 这个 Invoker 对象
+        // 若开启粘滞连接，且 stickyInvoker 不存在于 selected 中，则返回 stickyInvoker 这个 Invoker 对象
         if (sticky && stickyInvoker != null && (selected == null || !selected.contains(stickyInvoker))) {
             // 若开启排除非可用的 Invoker 的特性，则校验 stickyInvoker 是否可用。若可用，则进行返回
             if (availablecheck && stickyInvoker.isAvailable()) {

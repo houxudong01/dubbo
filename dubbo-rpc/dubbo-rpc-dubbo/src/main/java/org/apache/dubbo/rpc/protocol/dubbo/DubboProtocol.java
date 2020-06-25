@@ -259,7 +259,11 @@ public class DubboProtocol extends AbstractProtocol {
             inv.getAttachments().put(IS_CALLBACK_SERVICE_INVOKE, Boolean.TRUE.toString());
         }
 
+        // 计算 service key，格式为 groupName/serviceName:serviceVersion:port。比如：
+        //   dubbo/com.alibaba.dubbo.demo.DemoService:1.0.0:20880
         String serviceKey = serviceKey(port, path, inv.getAttachments().get(Constants.VERSION_KEY), inv.getAttachments().get(Constants.GROUP_KEY));
+        // 从 exporterMap 查找与 serviceKey 相对应的 DubboExporter 对象，
+        // 服务导出过程中会将 <serviceKey, DubboExporter> 映射关系存储到 exporterMap 集合中
         DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
 
         if (exporter == null) {
@@ -267,6 +271,7 @@ public class DubboProtocol extends AbstractProtocol {
                     ", channel: consumer: " + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress() + ", message:" + inv);
         }
 
+        // 获取 Invoker 对象，并返回
         return exporter.getInvoker();
     }
 

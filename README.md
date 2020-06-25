@@ -1,4 +1,4 @@
-# Apache Dubbo (incubating) Project
+# Apache Dubbo (孵化) 项目
 
 [![Build Status](https://travis-ci.org/apache/incubator-dubbo.svg?branch=master)](https://travis-ci.org/apache/incubator-dubbo)
 [![codecov](https://codecov.io/gh/apache/incubator-dubbo/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/incubator-dubbo)
@@ -10,35 +10,82 @@
 [![](https://img.shields.io/twitter/follow/ApacheDubbo.svg?label=Follow&style=social&logoWidth=0)](https://twitter.com/intent/follow?screen_name=ApacheDubbo)
 [![Gitter](https://badges.gitter.im/alibaba/dubbo.svg)](https://gitter.im/alibaba/dubbo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-Apache Dubbo (incubating) is a high-performance, Java based open source RPC framework. Please visit [official site](http://dubbo.incubator.apache.org) for quick start and documentations, as well as [Wiki](https://github.com/apache/incubator-dubbo/wiki) for news, FAQ, and release notes.
+Apache Dubbo是一个基于Java的高性能开源RPC框架。请访问官方网站以获取快速入门和文档，以及访问Wiki以获得新闻，常见问题解答和发行说明。
 
-We are now collecting dubbo user info in order to help us to improve Dubbo better, pls. kindly help us by providing yours on [issue#1012: Wanted: who's using dubbo](https://github.com/apache/incubator-dubbo/issues/1012), thanks :)
-
-## Architecture
+现在，我们正在收集dubbo用户信息，以帮助我们更好地改善Dubbo。请为您提供有关问题＃1012的帮助：想要：谁正在使用dubbo，谢谢:)
+## 架构
 
 ![Architecture](http://dubbo.apache.org/img/architecture.png)
 
-## Features
+## 源码导读
+相关代码中已添加中文注释：
+Dubbo SPI机制：
+[org.apache.dubbo.common.extension](https://github.com/houxudong01/dubbo/blob/feature/2.7.1/dubbo-common/src/main/java/org/apache/dubbo/common/extension/ExtensionLoader.java)
+服务暴露：
+[org.apache.dubbo.config.spring.ServiceBean#onApplicationEvent()](https://github.com/houxudong01/dubbo/blob/feature/2.7.1/dubbo-config/dubbo-config-spring/src/main/java/org/apache/dubbo/config/spring/ServiceBean.java#L121)
+服务引入: [org.apache.dubbo.config.spring.ServiceBean#afterPropertiesSet()](https://github.com/houxudong01/dubbo/blob/feature/2.7.1/dubbo-config/dubbo-config-spring/src/main/java/org/apache/dubbo/config/spring/ReferenceBean.java#L220)
+服务调用过程:
+`
+/**
+         *  sayHello(String) rpc调用链路：
+         * 1.消费方：
+         * proxy0#sayHello(String)
+         *   —> InvokerInvocationHandler#invoke(Object, Method, Object[])
+         *     —> MockClusterInvoker#invoke(Invocation)
+         *       —> AbstractClusterInvoker#invoke(Invocation)
+         *         —> FailoverClusterInvoker#doInvoke(Invocation, List<Invoker<T>>, LoadBalance)
+         *           —> Filter#invoke(Invoker, Invocation)  // 包含多个 Filter 调用
+         *             —> ListenerInvokerWrapper#invoke(Invocation)
+         *               —> AbstractInvoker#invoke(Invocation)
+         *                 —> DubboInvoker#doInvoke(Invocation)
+         *                   —> ReferenceCountExchangeClient#request(Object, int)
+         *                     —> HeaderExchangeClient#request(Object, int)
+         *                       —> HeaderExchangeChannel#request(Object, int)
+         *                         —> AbstractPeer#send(Object)
+         *                           —> AbstractClient#send(Object, boolean)
+         *                             —> NettyChannel#send(Object, boolean)
+         *                               —> NioClientSocketChannel#write(Object)
+         * 2.服务提供方：
+         * NettyHandler#messageReceived(ChannelHandlerContext, MessageEvent)
+         *   —> AbstractPeer#received(Channel, Object)
+         *     —> MultiMessageHandler#received(Channel, Object)
+         *       —> HeartbeatHandler#received(Channel, Object)
+         *         —> AllChannelHandler#received(Channel, Object)
+         *           —> ExecutorService#execute(Runnable)    // 由线程池执行后续的调用逻辑
+         *             -> ChannelEventRunnable#run()
+         *               —> DecodeHandler#received(Channel, Object)
+         *                 —> HeaderExchangeHandler#received(Channel, Object)
+         *                   —> HeaderExchangeHandler#handleRequest(ExchangeChannel, Request)
+         *                     —> DubboProtocol.requestHandler#reply(ExchangeChannel, Object)
+         *                       —> Filter#invoke(Invoker, Invocation)
+         *                         —> AbstractProxyInvoker#invoke(Invocation)
+         *                           —> Wrapper0#invokeMethod(Object, String, Class[], Object[])
+         *                             —> DemoServiceImpl#sayHello(String)
+         */
+`
+## 文档
+[](http://dubbo.apache.org/zh-cn/docs/user/quick-start.html)
 
-* Transparent interface based RPC
-* Intelligent load balancing
-* Automatic service registration and discovery
-* High extensibility
-* Runtime traffic routing
-* Visualized service governance
+## 特性
 
-## Getting started
+* 基于透明接口的RPC
+* 智能负载均衡
+* 自动服务注册和发现
+* 高扩展性
+* 运行时流量路由
+* 可视化服务治理
 
-The following code snippet comes from [Dubbo Samples](https://github.com/apache/incubator-dubbo-samples/tree/master/dubbo-samples-api). You may clone the sample project and step into `dubbo-samples-api` sub directory before read on.
+## 入门
+
+以下代码段来自 [Dubbo Samples](https://github.com/apache/incubator-dubbo-samples/tree/master/dubbo-samples-api). 您可以克隆示例项目，dubbo-samples-api然后在继续阅读之前进入子目录。
 
 ```bash
 # git clone https://github.com/apache/incubator-dubbo-samples.git
 # cd incubator-dubbo-samples/dubbo-samples-api
 ```
+目录下有一个README文件 [README](https://github.com/apache/incubator-dubbo-samples/tree/master/dubbo-samples-api/README.md) dubbo-samples-api。阅读它，然后按照说明尝试该示例。
 
-There's a [README](https://github.com/apache/incubator-dubbo-samples/tree/master/dubbo-samples-api/README.md) file under `dubbo-samples-api` directory. Read it and try this sample out by following the instructions.
-
-### Maven dependency
+### Maven 依赖
 
 ```xml
 <properties>
@@ -59,7 +106,7 @@ There's a [README](https://github.com/apache/incubator-dubbo-samples/tree/master
 </dependencies>
 ```
 
-### Define service interfaces
+### 定义服务接口
 
 ```java
 package org.apache.dubbo.samples.api;
@@ -69,9 +116,9 @@ public interface GreetingService {
 }
 ```
 
-*See [api/GreetingService.java](https://github.com/apache/incubator-dubbo-samples/blob/master/dubbo-samples-api/src/main/java/org/apache/dubbo/samples/api/GreetingsService.java) on GitHub.*
+* 请参阅GitHub上的 [api/GreetingService.java](https://github.com/apache/incubator-dubbo-samples/blob/master/dubbo-samples-api/src/main/java/org/apache/dubbo/samples/api/GreetingsService.java)
 
-### Implement service interface for the provider
+### 为提供者实现服务接口
 
 ```java
 package org.apache.dubbo.samples.provider;
@@ -85,9 +132,9 @@ public class GreetingServiceImpl implements GreetingService {
 }
 ```
 
-*See [provider/GreetingServiceImpl.java](https://github.com/apache/incubator-dubbo-samples/blob/master/dubbo-samples-api/src/main/java/org/apache/dubbo/samples/provider/GreetingsServiceImpl.java) on GitHub.*
+* 请参阅GitHub上的 [provider/GreetingServiceImpl.java](https://github.com/apache/incubator-dubbo-samples/blob/master/dubbo-samples-api/src/main/java/org/apache/dubbo/samples/provider/GreetingsServiceImpl.java) 
 
-### Start service provider
+### 启动服务提供者
 
 ```java
 package org.apache.dubbo.demo.provider;
@@ -113,16 +160,16 @@ public class Application {
 }
 ```
 
-*See [provider/Application.java](https://github.com/apache/incubator-dubbo-samples/blob/master/dubbo-samples-api/src/main/java/org/apache/dubbo/samples/provider/Application.java) on GitHub.*
+* 请参阅GitHub上的 [provider/Application.java](https://github.com/apache/incubator-dubbo-samples/blob/master/dubbo-samples-api/src/main/java/org/apache/dubbo/samples/provider/Application.java) *
 
-### Build and run the provider
+### 构建并运行服务提供者
 
 ```bash
 # mvn clean package
 # mvn -Djava.net.preferIPv4Stack=true -Dexec.mainClass=org.apache.dubbo.demo.provider.Application exec:java
 ```
 
-### Call remote service in consumer
+### 消费者调用远程服务
 
 ```java
 package org.apache.dubbo.demo.consumer;
@@ -144,25 +191,25 @@ public class Application {
 }
 ```
 
-### Build and run the consumer
+### 消费者构建和启动
 
 ```bash
 # mvn clean package
 # mvn -Djava.net.preferIPv4Stack=true -Dexec.mainClass=org.apache.dubbo.demo.consumer.Application exec:java
 ```
 
-The consumer will print out `Hello world` on the screen.
+消费者将会在屏幕上打印出 `Hello world`
 
 *See [consumer/Application.java](https://github.com/apache/incubator-dubbo-samples/blob/master/dubbo-samples-api/src/main/java/org/apache/dubbo/samples/consumer/Application.java) on GitHub.*
 
-### Next steps
+### 下一步
 
 * [Your first Dubbo application](http://dubbo.apache.org/en-us/blog/dubbo-101.html) - A 101 tutorial to reveal more details, with the same code above.
 * [Dubbo user manual](http://dubbo.apache.org/en-us/docs/user/preface/background.html) - How to use Dubbo and all its features.
 * [Dubbo developer guide](http://dubbo.apache.org/en-us/docs/dev/build.html) - How to involve in Dubbo development.
 * [Dubbo admin manual](http://dubbo.apache.org/en-us/docs/admin/install/provider-demo.html) - How to admin and manage Dubbo services.
 
-## Contact
+## 联系
 
 * Mailing list: 
   * dev list: for dev/user discussion. [subscribe](mailto:dev-subscribe@dubbo.incubator.apache.org), [unsubscribe](mailto:dev-unsubscribe@dubbo.incubator.apache.org), [archive](https://lists.apache.org/list.html?dev@dubbo.apache.org),  [guide](https://github.com/apache/incubator-dubbo/wiki/Mailing-list-subscription-guide)
@@ -171,11 +218,11 @@ The consumer will print out `Hello world` on the screen.
 * Gitter: [Gitter channel](https://gitter.im/alibaba/dubbo) 
 * Twitter: [@ApacheDubbo](https://twitter.com/ApacheDubbo)
 
-## Contributing
+## 贡献
 
 See [CONTRIBUTING](https://github.com/apache/incubator-dubbo/blob/master/CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
 
-### How can I contribute?
+### 我可以怎样贡献?
 
 * Take a look at issues with tag called [`Good first issue`](https://github.com/apache/incubator-dubbo/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) or [`Help wanted`](https://github.com/apache/incubator-dubbo/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22).
 * Join the discussion on mailing list, subscription [guide](https://github.com/apache/incubator-dubbo/wiki/Mailing-list-subscription-guide).
@@ -191,15 +238,15 @@ See [CONTRIBUTING](https://github.com/apache/incubator-dubbo/blob/master/CONTRI
 * Any form of contribution that is not mentioned above.
 * If you would like to contribute, please send an email to dev@dubbo.incubator.apache.org to let us know!
 
-## Reporting bugs
+## 报告错误
 
 Please follow the [template](https://github.com/apache/incubator-dubbo/issues/new?template=dubbo-issue-report-template.md) for reporting any issues.
 
-## Reporting a security vulnerability
+## 报告安全漏洞
 
 Please report security vulnerability to [us](mailto:security@dubbo.incubator.apache.org) privately.
 
-## Dubbo ecosystem
+## Dubbo 生态
 
 * [Dubbo Ecosystem Entry](https://github.com/dubbo) - A GitHub group `dubbo` to gather all Dubbo relevant projects not appropriate in [apache](https://github.com/apache) group yet
 * [Dubbo Website](https://github.com/apache/incubator-dubbo-website) - Apache Dubbo (incubating) official website
@@ -207,13 +254,13 @@ Please report security vulnerability to [us](mailto:security@dubbo.incubator.apa
 * [Dubbo Spring Boot](https://github.com/apache/incubator-dubbo-spring-boot-project) - Spring Boot Project for Dubbo
 * [Dubbo Admin](https://github.com/apache/incubator-dubbo-admin) - The reference implementation for Dubbo admin
 
-#### Language
+#### 语言
 
 * [Node.js](https://github.com/dubbo/dubbo2.js)
 * [Python](https://github.com/dubbo/dubbo-client-py)
 * [PHP](https://github.com/dubbo/dubbo-php-framework)
 * [Go](https://github.com/dubbo/dubbo-go)
 
-## License
+## 执照
 
 Apache Dubbo is under the Apache 2.0 license. See the [LICENSE](https://github.com/apache/incubator-dubbo/blob/master/LICENSE) file for details.

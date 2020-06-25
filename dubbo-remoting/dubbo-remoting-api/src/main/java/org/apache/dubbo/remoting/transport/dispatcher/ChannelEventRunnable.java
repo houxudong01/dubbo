@@ -50,49 +50,65 @@ public class ChannelEventRunnable implements Runnable {
         this.exception = exception;
     }
 
+    //执行链路：
+    // ChannelEventRunnable#run()
+    //  —> DecodeHandler#received(Channel, Object)
+    //    —> HeaderExchangeHandler#received(Channel, Object)
+    //      —> HeaderExchangeHandler#handleRequest(ExchangeChannel, Request)
+    //        —> DubboProtocol.requestHandler#reply(ExchangeChannel, Object)
+    //          —> Filter#invoke(Invoker, Invocation)
+    //            —> AbstractProxyInvoker#invoke(Invocation)
+    //              —> Wrapper0#invokeMethod(Object, String, Class[], Object[])
+    //                —> DemoServiceImpl#sayHello(String)
+
+
     @Override
     public void run() {
+        // 检测通道状态，对于请求或响应消息，此时 state = RECEIVED
         if (state == ChannelState.RECEIVED) {
             try {
+                // 将 channel 和 message 传给 ChannelHandler 对象，进行后续的调用
+                // DecodeHandler.received()
                 handler.received(channel, message);
             } catch (Exception e) {
                 logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel
                         + ", message is " + message, e);
             }
+            // 其他消息类型通过 switch 进行处理
         } else {
             switch (state) {
-            case CONNECTED:
-                try {
-                    handler.connected(channel);
-                } catch (Exception e) {
-                    logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel, e);
-                }
-                break;
-            case DISCONNECTED:
-                try {
-                    handler.disconnected(channel);
-                } catch (Exception e) {
-                    logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel, e);
-                }
-                break;
-            case SENT:
-                try {
-                    handler.sent(channel, message);
-                } catch (Exception e) {
-                    logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel
-                            + ", message is " + message, e);
-                }
-                break;
-            case CAUGHT:
-                try {
-                    handler.caught(channel, exception);
-                } catch (Exception e) {
-                    logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel
-                            + ", message is: " + message + ", exception is " + exception, e);
-                }
-                break;
-            default:
-                logger.warn("unknown state: " + state + ", message is " + message);
+                case CONNECTED:
+                    try {
+                        handler.connected(channel);
+                    } catch (Exception e) {
+                        logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel, e);
+                    }
+                    break;
+                case DISCONNECTED:
+                    try {
+                        handler.disconnected(channel);
+                    } catch (Exception e) {
+                        logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel, e);
+                    }
+                    break;
+                case SENT:
+                    try {
+                        handler.sent(channel, message);
+                    } catch (Exception e) {
+                        logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel
+                                + ", message is " + message, e);
+                    }
+                    break;
+                case CAUGHT:
+                    try {
+                        handler.caught(channel, exception);
+                    } catch (Exception e) {
+                        logger.warn("ChannelEventRunnable handle " + state + " operation error, channel is " + channel
+                                + ", message is: " + message + ", exception is " + exception, e);
+                    }
+                    break;
+                default:
+                    logger.warn("unknown state: " + state + ", message is " + message);
             }
         }
 
@@ -100,8 +116,6 @@ public class ChannelEventRunnable implements Runnable {
 
     /**
      * ChannelState
-     *
-     *
      */
     public enum ChannelState {
 
